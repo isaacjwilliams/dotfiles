@@ -1,0 +1,122 @@
+// Zed settings
+//
+// For information on how to configure Zed, see the Zed
+// documentation: https://zed.dev/docs/configuring-zed
+//
+// To see all of Zed's default settings without changing your
+// custom settings, run `zed: open default settings` from the
+// command palette (cmd-shift-p / ctrl-shift-p)
+{
+  "show_edit_predictions": false,
+  "sticky_scroll": {
+    "enabled": true
+  },
+  "edit_predictions": {
+    "mode": "eager"
+  },
+  "ui_font_weight": 400.0,
+  "buffer_font_family": "JetBrainsMonoNL Nerd Font",
+  "ui_font_family": "JetBrainsMonoNL Nerd Font",
+  "buffer_line_height": "standard",
+  "buffer_font_weight": 400.0,
+  "icon_theme": {
+    "mode": "dark",
+    "light": "Zed (Default)",
+    "dark": "Zed (Default)"
+  },
+  "vim_mode": true,
+  "base_keymap": "JetBrains",
+  "ui_font_size": 14.0,
+  "buffer_font_size": 12.0,
+  "theme": "Ethereal",
+  "tab_size": 2,
+  "format_on_save": "on",
+  "remove_trailing_whitespace_on_save": true,
+  "languages": {
+    "Ruby": {
+      "tab_size": 2,
+      "formatter": "language_server",
+      "language_servers": ["ruby-lsp", "!solargraph"],
+      "preferred_line_length": 140,
+      "soft_wrap": "preferred_line_length",
+      "wrap_guides": [140]
+    },
+    "ERB": {
+      "language_servers": ["ruby-lsp"],
+      "formatter": "language_server",
+      "tab_size": 2
+    },
+    "Slim": {
+      "language_servers": ["ruby-lsp"],
+      "formatter": "language_server",
+      "tab_size": 2
+    },
+    "Markdown": {
+      "preferred_line_length": 80,
+      "wrap_guides": [120]
+    }
+  },
+  "lsp": {
+    "ruby-lsp": {
+      "initialization_options": {
+        "enabledFeatures": {
+          "diagnostics": true,
+          "formatting": true,
+          "semanticHighlighting": false,
+          "debugging": true
+        },
+        "formatter": "rubocop",
+        "featuresConfiguration": {
+          "inlayHint": {
+            "enableAll": false
+          },
+          "debugging": {
+            "enabled": true,
+            "attachMode": "remote",
+            "remotePort": 38698
+          }
+        },
+        "rubyVersionManager": {
+          "identifier": "auto"
+        }
+      }
+    }
+  },
+  "file_types": {
+    "Ruby": [
+      "*.rb",
+      "*.rake",
+      "Rakefile",
+      "Gemfile",
+      "*.gemspec",
+      "Guardfile",
+      "Capfile",
+      "*.ru",
+      "*.thor",
+      "*.jbuilder",
+      "*.rbuild",
+      ".irbrc",
+      ".pryrc"
+    ]
+  },
+  "agent": {
+    "default_profile": "minimal",
+    "inline_assistant_model": {
+      "provider": "openai",
+      "model": "gpt-5-mini"
+    },
+    "use_modifier_to_send": true,
+    "default_model": {
+      "provider": "openai",
+      "model": "gpt-5-mini"
+    }
+  },
+  "git": {
+    "git_gutter": "tracked_files",
+    "inline_blame": {
+      "enabled": true,
+      "delay_ms": 800
+    },
+    "gutter_debounce": 300
+  }
+}

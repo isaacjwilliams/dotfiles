@@ -1,0 +1,44 @@
+// Zed keymap
+//
+// For information on binding keys, see the Zed
+// documentation: https://zed.dev/docs/key-bindings
+//
+// To see the default key bindings run `zed: open default keymap`
+// from the command palette.
+[
+  {
+    "context": "Workspace",
+    "bindings": {
+      // "alt-, g e": "editor::ToggleFocus",
+      // "alt-, g t": "terminal_panel::ToggleFocus"
+      "ctrl-w t l": "workspace::ToggleRightDock",
+      "ctrl-w t j": "workspace::ToggleBottomDock"
+    }
+  },
+  {
+    "context": "Dock",
+    "bindings": {
+      "ctrl-w h": "workspace::ActivatePaneLeft",
+      "ctrl-w l": "workspace::ActivatePaneRight",
+      "ctrl-w k": "workspace::ActivatePaneUp",
+      "ctrl-w j": "workspace::ActivatePaneDown"
+      // "ctrl-w t l": "workspace::ToggleRightDock",
+      // "ctrl-w t j": "workspace::ToggleBottomDock"
+      // ... or other keybindings
+    }
+  },
+  {
+    "context": "Editor && vim_mode == insert",
+    "bindings": {
+      // "j k": "vim::NormalBefore"
+    }
+  },
+  {
+    "context": "VimControl && !menu",
+    "bindings": {
+      "g a a": "agent::AddSelectionToThread",
+      ", r t f": ["task::Spawn", { "task_name": "RSpec: Run Current File" }],
+      ", r t l": ["task::Spawn", { "task_name": "RSpec: Run Current Line" }]
+    }
+  }
+]
