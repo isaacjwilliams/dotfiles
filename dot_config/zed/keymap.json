@@ -12,6 +12,7 @@
       // "alt-, g e": "editor::ToggleFocus",
       // "alt-, g t": "terminal_panel::ToggleFocus"
       "ctrl-w t l": "workspace::ToggleRightDock",
+      "ctrl-w t h": "workspace::ToggleLeftDock",
       "ctrl-w t j": "workspace::ToggleBottomDock"
     }
   },

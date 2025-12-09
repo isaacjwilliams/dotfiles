@@ -28,7 +28,7 @@
   "base_keymap": "JetBrains",
   "ui_font_size": 14.0,
   "buffer_font_size": 12.0,
-  "theme": "Ethereal",
+  "theme": "Gruvbox Dark",
   "tab_size": 2,
   "format_on_save": "on",
   "remove_trailing_whitespace_on_save": true,
@@ -103,12 +103,12 @@
     "default_profile": "minimal",
     "inline_assistant_model": {
       "provider": "openai",
-      "model": "gpt-5-mini"
+      "model": "gpt-5.1"
     },
     "use_modifier_to_send": true,
     "default_model": {
       "provider": "openai",
-      "model": "gpt-5-mini"
+      "model": "gpt-5.1"
     }
   },
   "git": {
