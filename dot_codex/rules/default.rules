@@ -1,0 +1,39 @@
+prefix_rule(
+  pattern = ["bundle", "exec", "rspec"],
+  decision = "allow"
+)
+prefix_rule(
+  pattern = ["bin/rails", "runner", "-e", "test"],
+  decision = "allow",
+  match = [
+    "bin/rails runner -e test tmp/debug.rb",
+    'bin/rails runner -e test "[1, 2, 3, 4].each { |number| puts number }"'
+  ],
+  not_match = [
+    "bin/rails runner -e development tmp/debug.rb",
+    "bin/rails runner tmp/debug.rb",
+    'bin/rails runner "[1, 2, 3, 4].each { |number| puts number }"'
+  ]
+)
+prefix_rule(
+  pattern = ["RAILS_ENV=test", "bundle", "exec", "rails", "db:drop"],
+  decision = "allow",
+  not_match = [
+    "bundle exec rails db:drop",
+    "RAILS_ENV=development bundle exec rails db:drop",
+    "bin/rails db:drop"
+  ]
+)
+prefix_rule(
+  pattern = ["RAILS_ENV=test", "bundle", "exec", "rails", "db:create"],
+  decision = "allow",
+  not_match = [
+    "bundle exec rails db:create",
+    "RAILS_ENV=development bundle exec rails db:create",
+    "bin/rails db:create"
+  ]
+)
+prefix_rule(
+  pattern = ["bundle", "exec", "rubocop"],
+  decision = "allow"
+)
