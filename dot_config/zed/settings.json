@@ -7,12 +7,15 @@
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
+  "git_panel": {
+    "sort_by_path": false
+  },
   "show_edit_predictions": false,
   "sticky_scroll": {
-    "enabled": true
+    "enabled": true,
   },
   "edit_predictions": {
-    "mode": "eager"
+    "mode": "eager",
   },
   "ui_font_weight": 400.0,
   "buffer_font_family": "JetBrainsMonoNL Nerd Font",
@@ -22,13 +25,13 @@
   "icon_theme": {
     "mode": "dark",
     "light": "Zed (Default)",
-    "dark": "Zed (Default)"
+    "dark": "Zed (Default)",
   },
   "vim_mode": true,
   "base_keymap": "JetBrains",
   "ui_font_size": 14.0,
   "buffer_font_size": 12.0,
-  "theme": "Gruvbox Dark",
+  "theme": "Catppuccin Mocha",
   "tab_size": 2,
   "format_on_save": "on",
   "remove_trailing_whitespace_on_save": true,
@@ -39,22 +42,27 @@
       "language_servers": ["ruby-lsp", "!solargraph"],
       "preferred_line_length": 140,
       "soft_wrap": "preferred_line_length",
-      "wrap_guides": [140]
+      "wrap_guides": [80, 140],
     },
     "ERB": {
       "language_servers": ["ruby-lsp"],
       "formatter": "language_server",
-      "tab_size": 2
+      "tab_size": 2,
     },
     "Slim": {
       "language_servers": ["ruby-lsp"],
       "formatter": "language_server",
-      "tab_size": 2
+      "tab_size": 2,
     },
     "Markdown": {
       "preferred_line_length": 80,
-      "wrap_guides": [120]
-    }
+      "wrap_guides": [80, 120],
+    },
+    "JavaScript": {
+      "formatter": "language_server",
+      "language_servers": ["eslint"],
+      "wrap_guides": [80, 140],
+    },
   },
   "lsp": {
     "ruby-lsp": {
@@ -63,24 +71,24 @@
           "diagnostics": true,
           "formatting": true,
           "semanticHighlighting": false,
-          "debugging": true
+          "debugging": true,
         },
         "formatter": "rubocop",
         "featuresConfiguration": {
           "inlayHint": {
-            "enableAll": false
+            "enableAll": false,
           },
           "debugging": {
             "enabled": true,
             "attachMode": "remote",
-            "remotePort": 38698
-          }
+            "remotePort": 38698,
+          },
         },
         "rubyVersionManager": {
-          "identifier": "auto"
-        }
-      }
-    }
+          "identifier": "auto",
+        },
+      },
+    },
   },
   "file_types": {
     "Ruby": [
@@ -96,27 +104,27 @@
       "*.jbuilder",
       "*.rbuild",
       ".irbrc",
-      ".pryrc"
-    ]
+      ".pryrc",
+    ],
   },
   "agent": {
     "default_profile": "minimal",
     "inline_assistant_model": {
       "provider": "openai",
-      "model": "gpt-5.1"
+      "model": "gpt-5.2",
     },
     "use_modifier_to_send": true,
     "default_model": {
       "provider": "openai",
-      "model": "gpt-5.1"
-    }
+      "model": "gpt-5-mini",
+    },
   },
   "git": {
     "git_gutter": "tracked_files",
     "inline_blame": {
       "enabled": true,
-      "delay_ms": 800
+      "delay_ms": 800,
     },
-    "gutter_debounce": 300
-  }
+    "gutter_debounce": 300,
+  },
 }
