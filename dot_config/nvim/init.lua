@@ -3,6 +3,13 @@ vim.g.maplocalleader = ","
 vim.g.have_nerd_font = true
 vim.g.colorscheme = "catppuccin"
 vim.opt.colorcolumn = "80,120"
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "markdown",
+  callback = function()
+    vim.opt_local.textwidth = 120
+    vim.opt_local.formatoptions:append("t")
+  end,
+})
 
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 local uv = vim.uv or vim.loop
