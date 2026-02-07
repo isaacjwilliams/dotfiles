@@ -1,0 +1,14 @@
+[user]
+  email = isaac@thewilliams.ws
+  name = Isaac Williams
+[core]
+  editor = nvim
+  pager = delta
+[interactive]
+  diffFilter = delta --color-only
+[delta]
+  navigate = true
+[merge]
+  conflictStyle = zdiff3
+[init]
+  defaultBranch = master
