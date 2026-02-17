@@ -37,3 +37,15 @@ prefix_rule(
   pattern = ["bundle", "exec", "rubocop"],
   decision = "allow"
 )
+prefix_rule(
+  pattern = ["sem", "get", "pipelines"],
+  decision = "allow"
+)
+prefix_rule(
+  pattern = ["sem", "get", "job"],
+  decision = "allow"
+)
+prefix_rule(
+  pattern = ["sem", "logs"],
+  decision = "allow"
+)
