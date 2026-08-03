@@ -61,8 +61,7 @@ live directory.
 | --- | --- | --- | --- |
 | `.chezmoiignore`, source `README.md` | chezmoi | `chezmoi`; Git for source history. The README and generated Neovim `lazyvim.json` are not applied to `$HOME`. | [Fedora chezmoi package](https://packages.fedoraproject.org/pkgs/chezmoi/chezmoi/), [chezmoi](https://www.chezmoi.io/) |
 | `.bashrc`, `.bash_profile`, `.bash_it/aliases/*`, `.bash_it/custom/*` | Bash and Bash-it | Bash-it with the `bobby` theme; `git`; `mise`; Worktrunk (`wt`); `zmx`; Kitty remote control for the `za` helper; and `desktop-file-edit` from `desktop-file-utils`. Only custom Bash-it files are managed—the upstream installation is not. | Fedora `bash`, `bash-completion`, `git`, and `desktop-file-utils`; [Bash-it installation](https://bash-it.readthedocs.io/en/latest/installation/) |
-| `.codex/prompts/*.md`, `.codex/rules/default.rules` | OpenAI Codex CLI | Codex is installed by Mise from `npm:@openai/codex`. The tracked Rails debugging prompts/rules reference Bundler, RSpec, Rails, RuboCop, and the Semaphore CLI (`sem`). Custom prompts are a legacy Codex surface; new reusable workflows should be skills. | [Codex CLI](https://learn.chatgpt.com/docs/codex/cli), [Semaphore CLI](https://docs.semaphoreci.com/EE/reference/semaphore-cli) |
-| `.config/Cursor/User/settings.json` | Cursor | System Git and the Catppuccin for VS Code theme extension. | [Cursor downloads](https://cursor.com/downloads), [Catppuccin for VS Code](https://github.com/catppuccin/vscode) |
+| `.codex/rules/default.rules` | OpenAI Codex CLI | Codex is installed by Mise from `npm:@openai/codex`. The tracked Rails rules reference Bundler, RSpec, Rails, RuboCop, and the Semaphore CLI (`sem`). | [Codex CLI](https://learn.chatgpt.com/docs/codex/cli), [Semaphore CLI](https://docs.semaphoreci.com/EE/reference/semaphore-cli) |
 | `.config/btop/btop.conf` | btop | No non-system dependency; it currently uses btop's default theme. | [Fedora btop package](https://packages.fedoraproject.org/pkgs/btop/), [btop](https://github.com/aristocratos/btop) |
 | `.config/fontconfig/fonts.conf` | Fontconfig | Fontconfig and user fonts under `~/.local/share/fonts`; enables synthetic italic/bold and font rendering preferences. | Fedora `fontconfig`, [Fontconfig](https://www.freedesktop.org/wiki/Software/fontconfig/) |
 | `.config/gh/config.yml` | GitHub CLI | `gh` and Git. Authentication in `hosts.yml` is intentionally not managed. | Fedora `gh`, [GitHub CLI](https://cli.github.com/) |
@@ -71,9 +70,6 @@ live directory.
 | `.config/lazygit/config.yml` | LazyGit | Git and `delta`; both configured pagers invoke `delta`. | [LazyGit Fedora/COPR instructions](https://github.com/jesseduffield/lazygit#fedora--amazon-linux-2023--centos-stream), [Fedora git-delta package](https://packages.fedoraproject.org/pkgs/rust-git-delta/git-delta/) |
 | `.config/mise/config.toml` | Mise | Installs LazyDocker 0.24.3, Node.js 25.2.1, Ruby 3.4.2, latest Rust, and latest `@openai/codex`. Network access to the corresponding registries is required by `mise install`. | [Mise Fedora installation](https://mise.jdx.dev/installing-mise.html) |
 | `.config/nvim/init.lua`, `.config/nvim/lazy-lock.json`, `.config/nvim/lua/plugins/*`, `.config/nvim/AGENTS.md` | Neovim with LazyVim | Git and GitHub SSH authentication for plugin clones; `ripgrep`, `fd`, a compiler/toolchain, `wl-clipboard`, and a Nerd Font. Ruby/TypeScript extras use the Ruby and Node toolchains from Mise; Rails testing uses Bundler/RSpec. `lazy.nvim` and Mason install editor plugins and language tooling. | Fedora `neovim`, `ripgrep`, `fd-find`, compiler packages, and `wl-clipboard`; [Neovim](https://neovim.io/), [LazyVim](https://www.lazyvim.org/), [Nerd Fonts](https://github.com/ryanoasis/nerd-fonts) |
-| `.config/spotify-player/app.toml` | spotify-player | A Spotify Premium account; the tracked Spotify application client ID; and OpenSSL, ALSA, and D-Bus libraries for the enabled streaming/media features. Auth/session caches are not managed. | [spotify-player](https://github.com/aome510/spotify-player); for a Cargo build: Fedora `openssl-devel alsa-lib-devel dbus-devel` |
-| `.config/vesktop/settings.json` | Vesktop | No extra dependency represented by this settings file. Account/session data is not managed. | [Vesktop installation](https://vesktop.dev/install), [Vesktop source](https://github.com/Vencord/Vesktop) |
-| `.config/wezterm/wezterm.lua` | WezTerm | Uses WezTerm's built-in Catppuccin Mocha color scheme. | [WezTerm Linux/Fedora installation](https://wezterm.org/install/linux.html) |
 | `.config/worktrunk/config.toml` | Worktrunk (`wt`) | Git; Bash shell integration; Codex CLI and `jq` for generated commit messages. Project-specific approval and lock files are intentionally not managed. | [Worktrunk](https://worktrunk.dev/) |
 | `.config/zed/keymap.json`, `.config/zed/settings.json` | Zed | Git; EnvyCodeR Nerd Font Mono; Ruby LSP and RuboCop from project bundles; ESLint from project Node dependencies; `npx` for Chrome DevTools MCP; the Zed registry `codex-acp` agent server; and project commands using Bundler, RSpec, Rails, RuboCop, and `sem`. | [Zed on Linux](https://zed.dev/docs/linux), [Nerd Fonts releases](https://github.com/ryanoasis/nerd-fonts/releases) |
 | `.gitconfig` | Git | Neovim as editor and `delta` as pager/diff filter. | Fedora `git` and `git-delta`; [Git](https://git-scm.com/), [delta](https://github.com/dandavison/delta) |
@@ -84,17 +80,11 @@ The following are referenced by managed config but are not Fedora base packages
 or are intentionally installed outside DNF:
 
 - [Worktrunk](https://worktrunk.dev/): `cargo install worktrunk`.
-- [spotify-player](https://github.com/aome510/spotify-player): install its Fedora
-  build dependencies and run `cargo install spotify_player --locked`.
 - [zmx](https://zmx.sh/): use the upstream Linux binary or build with Zig. Bash
   completion, prompt integration, and Kitty shortcuts are managed here.
 - [Semaphore CLI](https://docs.semaphoreci.com/EE/reference/semaphore-cli): needed
   only for the tracked `sem` Codex/Zed project workflows; its auth config stays
   local.
-- [Cursor](https://cursor.com/downloads),
-  [Vesktop](https://vesktop.dev/install), and
-  [WezTerm](https://wezterm.org/install/linux.html): optional GUI/terminal apps;
-  their managed configs are harmless when an app is absent.
 - [EnvyCodeR Nerd Font](https://github.com/ryanoasis/nerd-fonts/releases): install
   it under `~/.local/share/fonts` and run `fc-cache -f` for the Zed font setting.
 
