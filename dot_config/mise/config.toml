@@ -1,0 +1,6 @@
+[tools]
+lazydocker = "0.24.3"
+node = "25.2.1"
+"npm:@openai/codex" = "latest"
+ruby = "3.4.2"
+rust = "latest"

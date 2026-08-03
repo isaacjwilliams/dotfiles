@@ -13,8 +13,9 @@
       // "alt-, g t": "terminal_panel::ToggleFocus"
       "ctrl-w t l": "workspace::ToggleRightDock",
       "ctrl-w t h": "workspace::ToggleLeftDock",
-      "ctrl-w t j": "workspace::ToggleBottomDock"
-    }
+      "ctrl-w t j": "workspace::ToggleBottomDock",
+      ", f f": "text_finder::Toggle",
+    },
   },
   {
     "context": "Dock",
@@ -22,24 +23,30 @@
       "ctrl-w h": "workspace::ActivatePaneLeft",
       "ctrl-w l": "workspace::ActivatePaneRight",
       "ctrl-w k": "workspace::ActivatePaneUp",
-      "ctrl-w j": "workspace::ActivatePaneDown"
+      "ctrl-w j": "workspace::ActivatePaneDown",
       // "ctrl-w t l": "workspace::ToggleRightDock",
       // "ctrl-w t j": "workspace::ToggleBottomDock"
       // ... or other keybindings
-    }
+    },
   },
   {
     "context": "Editor && vim_mode == insert",
     "bindings": {
       // "j k": "vim::NormalBefore"
-    }
+    },
   },
   {
     "context": "VimControl && !menu",
     "bindings": {
       "g a a": "agent::AddSelectionToThread",
       ", r t f": ["task::Spawn", { "task_name": "RSpec: Run Current File" }],
-      ", r t l": ["task::Spawn", { "task_name": "RSpec: Run Current Line" }]
+      ", r t l": ["task::Spawn", { "task_name": "RSpec: Run Current Line" }],
+    },
+  },
+  {
+    "context": "vim_mode == visual || vim_mode == normal",
+    "bindings": {
+      "g q": "vim::Rewrap"
     }
   }
 ]

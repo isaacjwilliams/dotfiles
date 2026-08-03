@@ -1,7 +1,7 @@
 vim.g.mapleader = ","
 vim.g.maplocalleader = ","
 vim.g.have_nerd_font = true
-vim.g.colorscheme = "catppuccin"
+vim.g.colorscheme = "tokyonight"
 vim.opt.colorcolumn = "80,120"
 vim.api.nvim_create_autocmd("FileType", {
 	pattern = { "ruby", "markdown" },
@@ -54,3 +54,7 @@ require("lazy").setup({
 		},
 	},
 })
+
+vim.keymap.set("n", "<leader>fy", function()
+	vim.fn.setreg("+", vim.fn.expand("%:."), "c")
+end, { desc = "Copy Relative File Path" })
