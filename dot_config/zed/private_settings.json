@@ -171,14 +171,14 @@
     },
     "inline_assistant_model": {
       "provider": "openai-subscribed",
-      "model": "gpt-5.5",
+      "model": "gpt-5.6-sol",
     },
     "use_modifier_to_send": true,
     "default_model": {
       "effort": "high",
       "enable_thinking": true,
       "provider": "openai-subscribed",
-      "model": "gpt-5.5",
+      "model": "gpt-5.6-sol",
     },
   },
   "git": {

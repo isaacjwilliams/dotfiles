@@ -58,3 +58,8 @@ require("lazy").setup({
 vim.keymap.set("n", "<leader>fy", function()
 	vim.fn.setreg("+", vim.fn.expand("%:."), "c")
 end, { desc = "Copy Relative File Path" })
+
+vim.keymap.set("n", "<leader>fY", function()
+	local location = ("%s:%d"):format(vim.fn.expand("%:."), vim.fn.line("."))
+	vim.fn.setreg("+", location, "c")
+end, { desc = "Copy Relative File Path with Line Number" })
