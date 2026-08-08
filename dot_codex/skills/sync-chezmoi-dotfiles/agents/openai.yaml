@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sync Chezmoi Dotfiles"
+  short_description: "Import and commit changed chezmoi-managed files"
+  default_prompt: "Use $sync-chezmoi-dotfiles to review, import, and commit my changed chezmoi-managed configuration."
