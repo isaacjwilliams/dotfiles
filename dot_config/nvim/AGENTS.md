@@ -37,6 +37,15 @@ Key framework locations:
    - `:verbose map <lhs>`
    - `:verbose nmap <lhs>`
 
+## Runtime Verification Notes
+
+- This project uses LazyVim's framework defaults: Space for `<leader>` and backslash for `<localleader>`. The defaults are defined in `lua/lazyvim/config/options.lua`; local `init.lua` does not override them.
+- When investigating a configuration with leader overrides, check the effective value after startup with `:lua print(vim.inspect(vim.g.mapleader))`.
+- Resolve `<leader>` to the effective character before querying a mapping. For example, when the effective leader is Space, inspect `<Space>cd` (or ` cd` with `vim.fn.maparg`), not a comma-based mapping.
+- LazyVim loads its core keymaps on the `User VeryLazy` event. A headless check performed immediately during startup can incorrectly report that a mapping is absent. Wait for startup or explicitly run `:doautocmd User VeryLazy` before inspecting core mappings.
+- LSP mappings such as `K` are capability-dependent and buffer-local. Verify them in a real file buffer after the appropriate LSP client attaches; their absence in an empty headless buffer does not prove that the configured mapping is unavailable.
+- For scriptable verification, `vim.fn.maparg(lhs, "n", false, true)` returns the effective mapping metadata, including `desc`, `rhs`, `callback`, and whether it is buffer-local.
+
 ## Response Requirement
 
 Always state whether a result comes from:
