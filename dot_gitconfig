@@ -12,3 +12,5 @@
   conflictStyle = zdiff3
 [init]
   defaultBranch = master
+[credential "https://git.heroku.com"]
+	helper = !heroku git:credentials

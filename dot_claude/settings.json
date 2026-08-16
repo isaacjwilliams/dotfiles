@@ -1,9 +1,12 @@
 {
-  "model": "opus",
-  "effortLevel": "high",
-  "theme": "dark",
+  "model": "opus[1m]",
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline-command.sh"
+  },
+  "effortLevel": "high",
+  "theme": "auto",
+  "enabledPlugins": {
+    "ruby-lsp@claude-plugins-official": true
   }
 }
