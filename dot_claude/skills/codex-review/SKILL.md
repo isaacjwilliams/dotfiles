@@ -360,9 +360,10 @@ what is real; your verdict is annotation, not a filter.
 ```markdown
 ## Codex review — <target, and what it resolved to: the range for a branch, the file list for paths>
 
-**Derived intent:** <Codex's, verbatim>
+**Derived intent — Codex:** <verbatim>
+**Derived intent — Claude reviewer:** <verbatim; omit the line if no second reviewer ran>
 **Stated intent:** <as briefed, or "none stated" >
-<agreement, or the divergence and what it implies>
+<agreement, or the divergence and what it implies, for each derivation against stated intent>
 
 ### Findings
 
@@ -386,6 +387,16 @@ could not be recorded under **An approval is not intent** in step 3>
 changed; verification already present and the important gaps; whether the work is ready
 to merge once the findings above are addressed>
 ```
+
+Every reviewer derives intent independently, so under `policy/unfamiliar.md` there are
+two derivations and **both are reported, verbatim and unmerged.** Blending them into one
+line, or keeping only Codex's, discards the comparison that matters most here: two
+reviewers who read the same artifact and came away with different accounts of its purpose
+is direct evidence that the artifact fails to communicate that purpose. Neither
+derived-versus-stated comparison can produce that evidence, because neither reviewer saw
+the other's. Where the two diverge, say so and carry it into the findings list at a
+severity set by its consequences — the same treatment `review-rubric.md` gives a
+derived-versus-stated divergence.
 
 The conclusion is not optional and not a summary of the findings list. `review-rubric.md`
 requires every reviewer to produce one, so a report without this section silently discards
