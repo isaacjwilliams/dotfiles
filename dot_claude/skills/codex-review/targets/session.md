@@ -3,10 +3,6 @@
 The artifact is the work produced in this conversation — a plan you proposed, or code
 you changed. You wrote it, and you are about to judge criticism of it.
 
-## Review units
-
-One. The session's work is a single artifact.
-
 ## Scope
 
 Determine whether this is a **code review** (changes on disk) or a **plan review** (a
@@ -21,30 +17,19 @@ Stated intent comes from the user. Include, verbatim:
 
 - Every user message that shaped the work, in order.
 - The hard constraints the user set, as checkable facts.
-- The decisions the user made when you offered them a choice, with the option they
-  picked — these are the ones most likely to look like mistakes to a reviewer who
-  doesn't know they were chosen deliberately.
+- The decisions the user made when you offered them a choice — under the rule below, which
+  is narrow and fails closed.
+
+The rule for that third bullet — what an approval does and does not carry — is
+`SKILL.md` §3, **An approval is not intent**. It is already in your context; do not read
+another target file to find it.
 
 For a plan review, write the plan verbatim to `<scratchpad>/codex-review-plan.md` and
 reference that path. It is the artifact, and Codex must derive intent from it before
 reading your request — which it cannot do if the two arrive in one document. For a code
 review there is no plan file; the code is the artifact.
 
-## While Codex reviews
+## Review policy
 
-Do no further work on this review; wait for Codex's result.
-
-You already hold the full context of this work, so a second pass by you adds no
-independent signal — it would reproduce the same reasoning that produced the artifact,
-including whatever is wrong with it. Do not launch a reviewer subagent, and do not spend
-the wait re-reading your own diff looking for things to pre-emptively defend.
-
-The call is handed back to you as a background task after roughly 120 seconds. That is
-not an invitation to start reviewing; the reason to hold off is independence, not
-blocking. Unrelated work the user asks for in the meantime is fine.
-
-## The bias to correct for
-
-You are evaluating criticism of your own work. Assume you are tilted toward dismissal
-and correct for it. The failure mode here is a finding you talk yourself out of because
-you remember why you did it that way — and remembering why is not counter-evidence.
+`policy/authored.md`, always. By definition you produced this session's work, so what you
+do while Codex reviews and which bias you correct for are both fixed for this target.

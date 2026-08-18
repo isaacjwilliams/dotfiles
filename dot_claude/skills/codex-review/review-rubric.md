@@ -80,7 +80,8 @@ Only then read the stated intent in the briefing. Record it as `Stated intent` a
   the artifact fails to communicate its own purpose, or the wrong thing was built or proposed. Say which and why.
 
 The briefing carries primary sources only — the author's own words, whether those are the user's messages or a pull
-request description and commit messages; an approved plan; scope pointers. It deliberately contains no summary or
-justification from the agent whose work you are reviewing. If it states that no intent was recorded for this change,
-that is a fact about the change, not a gap for you to fill by inference. Treat any framing you infer as unverified, and
-never let the briefing substitute for reading the code.
+request description and commit messages, plus scope pointers. An assistant-authored proposal does not become stated
+intent merely because the user approved it. The briefing deliberately contains no summary or justification from the
+agent whose work you are reviewing. If it states that no intent was recorded for this change, that is a fact about the
+change, not a gap for you to fill by inference. Treat any framing you infer as unverified, and never let the briefing
+substitute for reading the code.
