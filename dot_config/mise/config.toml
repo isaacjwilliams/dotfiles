@@ -1,6 +1,14 @@
 [tools]
+go = "latest"
 lazydocker = "0.24.3"
 node = "25.2.1"
 "npm:@openai/codex" = "latest"
 ruby = "3.4.2"
 rust = "latest"
+
+[env]
+# Keep `go install` output in a stable location. mise defaults GOBIN to the
+# active toolchain's bin dir, so upgrading Go silently discards every installed
+# binary.
+GOBIN = "{{env.HOME}}/go/bin"
+_.path = ["{{env.HOME}}/go/bin"]
