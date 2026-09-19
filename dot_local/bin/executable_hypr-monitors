@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+#
+# Write ~/.config/hypr/monitors.lua from the monitors Hyprland can currently
+# see, and pin workspaces 1-6 to the primary one.
+#
+# Why this file exists: HyprMod owns hyprland-gui.lua and rewrites it wholesale,
+# monitor block included, so the output name and mode of whichever machine last
+# saved end up in the dotfiles repo. hyprland.lua requires monitors.lua last and
+# later values win, so this machine-local file is what actually decides the
+# layout. It is listed in .chezmoiignore and never travels between machines.
+#
+#   hypr-monitors          write the file (refuses to clobber an existing one)
+#   hypr-monitors --force  overwrite it
+#
+# After regenerating, run `hyprctl reload`.
+
+set -euo pipefail
+
+out="${HOME}/.config/hypr/monitors.lua"
+force=0
+
+case "${1:-}" in
+    --force | -f) force=1 ;;
+    "") ;;
+    *)
+        echo "usage: ${0##*/} [--force]" >&2
+        exit 2
+        ;;
+esac
+
+if [ -e "$out" ] && [ "$force" -eq 0 ]; then
+    echo "${out} already exists; pass --force to overwrite"
+    exit 0
+fi
+
+read -r -d '' render <<'PYTHON' || true
+import json
+import sys
+
+monitors = json.load(sys.stdin)
+if not monitors:
+    raise SystemExit(1)
+
+# Hyprland marks the focused monitor. Nothing is focused immediately after a
+# cold start, so fall back to the first one it reports.
+primary = next((m for m in monitors if m.get("focused")), monitors[0])
+
+out = []
+for m in monitors:
+    mode = "%dx%d@%.2fHz" % (m["width"], m["height"], m["refreshRate"])
+    out.append("hl.monitor({")
+    out.append('    output = "%s",' % m["name"])
+    out.append("    disabled = false,")
+    out.append('    mode = "%s",' % mode)
+    out.append('    position = "%dx%d",' % (m["x"], m["y"]))
+    out.append("    scale = %g," % m["scale"])
+    preset = m.get("colorManagementPreset")
+    if preset:
+        out.append('    cm = "%s",' % preset)
+    out.append("})")
+    out.append("")
+
+out.append("-- Workspaces 1-6 on the primary monitor.")
+out.append("for i = 1, 6 do")
+out.append("    hl.workspace_rule({")
+out.append("        workspace = tostring(i),")
+out.append('        monitor = "%s",' % primary["name"])
+out.append("        default = true,")
+out.append("        persistent = true,")
+out.append("    })")
+out.append("end")
+
+print("\n".join(out))
+PYTHON
+
+# `hyprctl -j monitors` only answers inside a running Hyprland session. When it
+# cannot (applying from a TTY, or over SSH before the first login), fall back to
+# Hyprland's catch-all rule: an empty output name matches every monitor, and
+# preferred/auto let it pick mode and position itself. That is a working layout
+# on any hardware -- just not necessarily the one you want.
+body=""
+if monitors_json=$(hyprctl -j monitors 2>/dev/null) && [ -n "$monitors_json" ]; then
+    body=$(printf '%s' "$monitors_json" | python3 -c "$render") || body=""
+fi
+
+if [ -z "$body" ]; then
+    echo "no running Hyprland to query; writing an auto-detect layout" >&2
+    body='-- Fallback: no Hyprland session was running when this was generated.
+-- An empty output name matches every monitor.
+hl.monitor({
+    output = "",
+    disabled = false,
+    mode = "preferred",
+    position = "auto",
+    scale = 1,
+})
+
+-- No workspace pinning: with the monitor names unknown, letting Hyprland put
+-- workspaces on the focused output is the only sane default.'
+fi
+
+mkdir -p "$(dirname "$out")"
+cat > "$out" <<EOF
+-- Monitor layout for $(hostname), generated $(date +%Y-%m-%d) by hypr-monitors.
+--
+-- Machine-local. Ignored by chezmoi, required last by hyprland.lua, and
+-- therefore authoritative over the monitor and workspace rules HyprMod writes
+-- into hyprland-gui.lua.
+--
+-- Regenerate:  hypr-monitors --force && hyprctl reload
+
+${body}
+EOF
+
+echo "wrote ${out}"

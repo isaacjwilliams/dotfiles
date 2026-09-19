@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+# wsclose — close every window on a Hyprland workspace.
+#
+# Hyprland has no close-everything dispatcher, so this closes each window in
+# turn. The important part is *how*.
+#
+# Force-killing a window (forcekillactive) SIGKILLs its client process. Ghostty
+# in single-instance mode is one process behind every window on every
+# workspace, so force-killing one of its windows destroys all of them. That is
+# not hypothetical: it is how this machine lost a full session.
+#
+# So a window is only ever force-killed when its client owns nothing outside
+# the set being closed -- i.e. the client dies anyway. Every other window gets a
+# graceful per-surface close, which can never reach another workspace.
+#
+# The cost of a graceful close is that Ghostty's confirm-close-surface (default
+# true) raises an in-window confirmation for anything still running, so those
+# windows wait for a keypress. Set `confirm-close-surface = false` in the
+# Ghostty config to make them close outright.
+#
+# There is no undo -- unsaved buffers die -- hence the dialog unless --force.
+
+set -euo pipefail
+
+die() { report "$*"; exit 1; }
+
+# Keybind launches have nowhere to print, so speak through the notification
+# daemon when stdout is not a terminal.
+report() {
+    if [[ -t 1 ]]; then
+        printf 'wsclose: %s\n' "$*"
+    elif command -v noctalia >/dev/null 2>&1; then
+        noctalia msg notification-show "wsclose" "$*" >/dev/null 2>&1 || true
+    else
+        hyprctl notify -1 4000 "rgb(bdc2ff)" "wsclose: $*" >/dev/null 2>&1 || true
+    fi
+}
+
+usage() {
+    cat <<'EOF'
+usage: wsclose [-w WS|here] [-m] [-f] [-n]
+
+Closes every window on a workspace, killing whatever those terminals are
+running. Asks first unless --force.
+
+A window is force-killed only when its Ghostty process owns nothing outside the
+set being closed. Windows sharing a process with other workspaces -- which is
+every window when Ghostty runs single-instance -- are closed gracefully instead,
+so this can never take down the daemon. Those windows honour
+confirm-close-surface, so set it to false if you want them to close outright.
+
+  -w, --ws       Workspace number, or "here" (default: the active workspace)
+  -m, --monitor  Also close the special workspace open on this monitor
+                 (Magic / Chat / Chrome), not just the active workspace
+  -f, --force    Skip the confirmation dialog
+  -n, --dry-run  List what would be closed and exit
+  -h, --help     This message
+
+Bind it through HyprMod as an exec action, using an absolute path -- Hyprland's
+own PATH does not include ~/.local/bin:
+
+  hl.bind("SUPER + SHIFT + Q", hl.dsp.exec_cmd("/home/isaac/.local/bin/wsclose"))
+EOF
+}
+
+# ---------------------------------------------------------------- arguments
+
+want_ws=here; include_special=0; force=0; dry_run=0
+
+while (($#)); do
+    case $1 in
+        -w|--ws|--workspace) want_ws=${2:?--ws needs a value}; shift 2 ;;
+        -m|--monitor)  include_special=1; shift ;;
+        -f|--force)    force=1; shift ;;
+        -n|--dry-run)  dry_run=1; shift ;;
+        -h|--help)     usage; exit 0 ;;
+        *) die "unknown argument: $1" ;;
+    esac
+done
+
+command -v jq >/dev/null 2>&1 || die "jq is required"
+
+# ------------------------------------------------------------------ targets
+
+if [[ $want_ws == here ]]; then
+    ws=$(hyprctl activeworkspace -j | jq -r '.id')
+else
+    [[ $want_ws =~ ^[0-9]+$ ]] || die "--ws needs a number or \"here\""
+    ws=$want_ws
+fi
+
+ws_ids=("$ws")
+if ((include_special)); then
+    special=$(hyprctl monitors -j | jq -r '.[]|select(.focused)|.specialWorkspace.id')
+    ((special != 0)) && ws_ids+=("$special")
+fi
+ids_json=$(printf '%s\n' "${ws_ids[@]}" | jq -Rn '[inputs|tonumber]')
+
+# Snapshot the targets *before* putting a dialog on screen, so the dialog can
+# never end up in its own kill list.
+# For each target window decide whether force-killing it is safe: it is, only
+# if every window belonging to that client process is itself a target.
+mapfile -t rows < <(
+    hyprctl clients -j |
+        jq -r --argjson ids "$ids_json" '
+            . as $all
+            | [ $all[] | select(.workspace.id as $w | $ids | index($w)) ] as $targets
+            | ( $targets | group_by(.pid)
+                         | map({pid: .[0].pid, n: length}) ) as $counts
+            | $targets[]
+            | .pid as $pid
+            | ( $all | map(select(.pid == $pid)) | length ) as $owned
+            | ( $counts[] | select(.pid == $pid) | .n ) as $targeted
+            | "\(.address)\t\(if $owned == $targeted then "kill" else "close" end)\t\(.title)"'
+)
+
+if ((${#rows[@]} == 0)); then
+    report "nothing to close on workspace $ws"
+    exit 0
+fi
+
+addrs=(); modes=(); titles=(); shared=0
+for row in "${rows[@]}"; do
+    IFS=$'\t' read -r a m t <<<"$row"
+    addrs+=("$a"); modes+=("$m"); titles+=("$t")
+    [[ $m == close ]] && shared=$((shared + 1))
+done
+
+listing=$(printf '  • %s\n' "${titles[@]}")
+
+if ((dry_run)); then
+    report "would close ${#addrs[@]} window(s) on workspace $ws:"
+    printf '%s\n' "$listing"
+    exit 0
+fi
+
+# ------------------------------------------------------------- confirmation
+
+if ((!force)); then
+    note="Running programs will be killed. This cannot be undone."
+    if ((shared > 0)); then
+        note="$note
+
+$shared of them share a Ghostty process with windows elsewhere, so they are
+closed gracefully and may each ask you to confirm."
+    fi
+    prompt="Close ${#addrs[@]} window(s) on workspace $ws?
+
+$listing
+$note"
+
+    if command -v zenity >/dev/null 2>&1; then
+        zenity --question --title="wsclose" --text="$prompt" \
+               --ok-label="Close all" --cancel-label="Cancel" \
+               --width=460 --default-cancel >/dev/null 2>&1 || {
+            report "cancelled"; exit 0
+        }
+    elif [[ -t 0 ]]; then
+        printf '%s\n' "$prompt"
+        read -rp "Proceed? [y/N] " reply
+        [[ $reply == [Yy]* ]] || { report "cancelled"; exit 0; }
+    else
+        die "no way to confirm (install zenity, or pass --force)"
+    fi
+fi
+
+# -------------------------------------------------------------------- close
+
+for i in "${!addrs[@]}"; do
+    if [[ ${modes[$i]} == kill ]]; then
+        hyprctl eval "hl.dispatch(hl.dsp.window.kill({ window = 'address:${addrs[$i]}' }))" >/dev/null
+    else
+        hyprctl eval "hl.dispatch(hl.dsp.window.close({ window = 'address:${addrs[$i]}' }))" >/dev/null
+    fi
+done
+
+# A client can in principle outlive the request, so say so rather than claiming
+# a clean sweep.
+sleep 0.4
+survivors=$(
+    hyprctl clients -j |
+        jq -r --argjson ids "$ids_json" '
+            [.[] | select(.workspace.id as $w | $ids | index($w))] | length'
+)
+
+gone=$(( ${#addrs[@]} - survivors ))
+
+if ((survivors > 0 && shared > 0)); then
+    # Expected: a gracefully closed window stays up until its confirmation is
+    # answered. Not a failure, so say what is waiting rather than reporting one.
+    report "closed $gone of ${#addrs[@]} window(s); $survivors awaiting confirmation (set confirm-close-surface = false to skip)"
+    exit 0
+elif ((survivors > 0)); then
+    report "closed $gone of ${#addrs[@]} window(s); $survivors still up"
+    exit 1
+fi
+report "closed ${#addrs[@]} window(s) on workspace $ws"

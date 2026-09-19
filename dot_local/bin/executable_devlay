@@ -1,0 +1,249 @@
+#!/usr/bin/env bash
+# devlay — open a set of Ghostty windows in a declared layout on an empty
+# Hyprland workspace, all rooted at one directory.
+#
+# Layouts live in ~/.config/hypr/layouts/<name>.layout, or in a .devlay file
+# in the directory you run from. See `devlay --help`.
+
+set -euo pipefail
+
+LAYOUT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/layouts"
+TIMEOUT_MS=10000
+
+die() { printf 'devlay: %s\n' "$1" >&2; exit 1; }
+
+usage() {
+    cat <<'EOF'
+usage: devlay [layout] [-d DIR] [-w WS|here] [--list]
+
+Opens the windows described by a layout file. Each [column] block becomes one
+tiled column, left to right; a column holding two or more commands becomes a
+tabbed group.
+
+  layout      Layout name (default: "dev"), resolved as
+              ./.devlay  ->  ~/.config/hypr/layouts/<layout>.layout
+  -d, --dir   Directory to open the windows in (default: current directory)
+  -w, --ws    Target workspace number, or "here" for the current one
+              (default: the lowest empty workspace)
+  -l, --list  List available layouts
+  -h, --help  This message
+
+Layout file syntax:
+
+  # comments and blank lines are ignored
+  [column]
+  claude
+
+  [column]
+  lazygit
+  nvim .
+  fish
+
+Prefix a command with @ if the program sets its own window title -- Claude Code
+and fish do, lazygit and nvim do not. Everything else gets its title pinned to
+the command as written, and a pinned title cannot be changed afterwards.
+
+Commands are fish, not bash: quoting and expansions follow fish rules.
+
+Windows open inside the running Ghostty instance, so a layout costs one surface
+each (~29 MB) rather than a whole process each (~105 MB). Each command runs
+through a login shell, so it and anything it shells out to (delta, for one) see
+the same environment as a hand-opened window.
+EOF
+}
+
+# ---------------------------------------------------------------- arguments
+
+layout=dev; dir=$PWD; want_ws=
+
+while (($#)); do
+    case $1 in
+        -d|--dir)  dir=${2:?--dir needs a value}; shift 2 ;;
+        -w|--ws|--workspace) want_ws=${2:?--ws needs a value}; shift 2 ;;
+        -l|--list)
+            shopt -s nullglob
+            for f in "$LAYOUT_DIR"/*.layout; do basename "$f" .layout; done
+            exit 0 ;;
+        -h|--help) usage; exit 0 ;;
+        -*) die "unknown option: $1" ;;
+        *)  layout=$1; shift ;;
+    esac
+done
+
+[[ -d $dir ]] || die "no such directory: $dir"
+dir=$(cd "$dir" && pwd)
+
+if [[ -f $dir/.devlay ]]; then
+    layout_file=$dir/.devlay
+else
+    layout_file=$LAYOUT_DIR/$layout.layout
+fi
+[[ -f $layout_file ]] || die "no layout file: $layout_file"
+
+# ------------------------------------------------------------- parse layout
+# Columns are collected into `columns`, one entry per column, commands
+# separated by newlines.
+
+columns=(); current=; have_column=0
+
+while IFS= read -r line || [[ -n $line ]]; do
+    line=${line#"${line%%[![:space:]]*}"}      # ltrim
+    line=${line%"${line##*[![:space:]]}"}      # rtrim
+    [[ -z $line || $line == '#'* ]] && continue
+    if [[ $line == '['*']' ]]; then
+        ((have_column)) && columns+=("$current")
+        current=; have_column=1
+        continue
+    fi
+    ((have_column)) || die "command outside any [column] block: $line"
+    current+=${current:+$'\n'}$line
+done < "$layout_file"
+((have_column)) && columns+=("$current")
+
+((${#columns[@]})) || die "layout is empty: $layout_file"
+
+# ------------------------------------------------------- command environment
+# Windows are opened with `ghostty +new-window`, which asks the *running*
+# Ghostty instance over D-Bus to open them, so a layout costs one surface each
+# (~29 MB) instead of a whole process each (~105 MB). The catch is that the
+# daemon spawns the command with *its own* environment, and a daemon started
+# from a Hyprland keybind has only the bare session PATH -- no mise. Handing
+# over an absolute path fixes the command itself but not what it shells out to,
+# which is how a lazygit opened that way ends up without delta.
+#
+# So every command goes through a login shell -- `fish -l -c 'exec CMD'` --
+# exactly as a hand-opened window would. config.fish runs mise activate, so the
+# program and everything below it see the interactive PATH. exec replaces the
+# shell, leaving no wrapper process behind.
+#
+# The shell costs Ghostty its title: it builds one from the command it is
+# handed, so every window would read "fish". Hence --title, pinned to the
+# command as written -- except for a command prefixed with @ in the layout,
+# which is one that titles itself. --title *freezes* the title, so pinning
+# those would cost Claude Code its status glyphs and the shell its cwd.
+
+login_path_loaded=0
+
+ensure_login_path() {
+    ((login_path_loaded)) && return
+    login_path_loaded=1
+    local p
+    p=$(fish -l -c 'string join : $PATH' 2>/dev/null) || return
+    [[ -n $p ]] && export PATH="$p"
+}
+
+# Fail here with a clear message rather than with a window that flashes and
+# disappears. Checked against the login PATH, which is what the window gets.
+require_cmd() {
+    local bin=$1
+    command -v "$bin" >/dev/null 2>&1 || ensure_login_path
+    command -v "$bin" >/dev/null 2>&1 || die "command not found: $bin"
+}
+
+# ------------------------------------------------------------- hyprland i/o
+
+hypr_eval() { hyprctl eval "$1" >/dev/null; }
+
+# Addresses of every window on workspace $1, newline separated.
+addrs_on() {
+    hyprctl clients -j | jq -r --argjson w "$1" '.[]|select(.workspace.id==$w)|.address'
+}
+
+# Lowest workspace id with no windows on it.
+first_empty_ws() {
+    local occupied ws
+    occupied=$(hyprctl clients -j | jq -r '.[]|select(.workspace.id>0)|.workspace.id' | sort -un)
+    for ws in $(seq 1 20); do
+        grep -qx "$ws" <<<"$occupied" || { echo "$ws"; return; }
+    done
+    die "no empty workspace found"
+}
+
+# Spawn one Ghostty window and echo the address of the window that appears.
+# $1 workspace, $2 command
+spawn_window() {
+    local ws=$1 cmd=$2 before after new waited=0
+    before=$(addrs_on "$ws")
+
+    local -a title_args=()
+    if [[ $cmd == @* ]]; then
+        cmd=${cmd#@}                        # titles itself; leave it alone
+    else
+        title_args=(--title="$cmd")
+    fi
+
+    require_cmd "${cmd%%[[:space:]]*}"
+
+    ghostty +new-window --working-directory="$dir" \
+        "${title_args[@]}" -e fish -l -c "exec $cmd" >/dev/null 2>&1 \
+        || die "ghostty +new-window failed for: $cmd"
+
+    while ((waited < TIMEOUT_MS)); do
+        sleep 0.05; waited=$((waited + 50))
+        after=$(addrs_on "$ws")
+        new=$(comm -13 <(sort <<<"$before") <(sort <<<"$after") | head -1)
+        [[ -n $new ]] && { echo "$new"; return; }
+    done
+    die "timed out waiting for a window running: $cmd"
+}
+
+# ------------------------------------------------------------------- build
+
+if [[ $want_ws == here ]]; then
+    ws=$(hyprctl activeworkspace -j | jq -r '.id')
+elif [[ -n $want_ws ]]; then
+    [[ $want_ws =~ ^[0-9]+$ ]] || die "--ws needs a number or \"here\""
+    ws=$want_ws
+else
+    ws=$(first_empty_ws)
+fi
+
+hypr_eval "hl.dispatch(hl.dsp.focus({workspace = $ws}))"
+
+# auto_group would pull a new column's first window into the previous column's
+# group. Turn it off for the run -- every group is built explicitly below -- and
+# put whatever it was back on the way out, however we exit.
+prev_auto_group=$(hyprctl getoption group:auto_group | awk '/^bool:/ {print $2; exit}')
+[[ $prev_auto_group == true || $prev_auto_group == false ]] || prev_auto_group=true
+restore_auto_group() {
+    hyprctl keyword group:auto_group "$prev_auto_group" >/dev/null 2>&1 || true
+}
+trap restore_auto_group EXIT
+hyprctl keyword group:auto_group false >/dev/null
+
+starters=()
+
+# Phase 1: one window per column, left to right. Each new column is preselected
+# to the right of the previous one so dwindle splits where we want it.
+for i in "${!columns[@]}"; do
+    first_cmd=$(head -1 <<<"${columns[$i]}")
+    if ((i > 0)); then
+        hypr_eval "hl.dispatch(hl.dsp.focus({window = 'address:${starters[$((i-1))]}'}))"
+        hypr_eval "hl.dispatch(hl.dsp.layout('preselect r'))"
+    fi
+    starters+=("$(spawn_window "$ws" "$first_cmd")")
+done
+hypr_eval "hl.dispatch(hl.dsp.layout('preselect none'))"
+
+# Phase 2: turn every multi-command column into a tabbed group and fill it.
+for i in "${!columns[@]}"; do
+    mapfile -t cmds <<<"${columns[$i]}"
+    ((${#cmds[@]} > 1)) || continue
+
+    head_addr=${starters[$i]}
+    hypr_eval "hl.dispatch(hl.dsp.group.toggle({window = 'address:$head_addr'}))"
+
+    for cmd in "${cmds[@]:1}"; do
+        addr=$(spawn_window "$ws" "$cmd")
+        hypr_eval "local g = hl.get_window('address:$head_addr').group
+                   local w = hl.get_window('address:$addr')
+                   if g and w and not w.group then g:add(w) end"
+    done
+done
+
+# Phase 3: focusing a group member selects it, so touching each column's first
+# window leaves every group showing tab 1. Focusing column 1 last lands there.
+for addr in "${starters[@]}"; do
+    hypr_eval "hl.dispatch(hl.dsp.focus({window = 'address:$addr'}))"
+done
+hypr_eval "hl.dispatch(hl.dsp.focus({window = 'address:${starters[0]}'}))"

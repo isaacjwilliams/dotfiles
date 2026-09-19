@@ -1,2 +1,43 @@
-.config/nvim/lazyvim.json
 README.md
+
+# Noctalia-generated theme outputs — rewritten on every palette change.
+# The wiring that references them IS tracked; the color values are not.
+.config/alacritty/themes/noctalia.toml
+.config/btop/themes/noctalia.theme
+.config/foot/themes/noctalia
+.config/ghostty/themes/noctalia
+.config/gtk-3.0/noctalia.css
+.config/gtk-4.0/noctalia.css
+.config/hypr/noctalia.lua
+.config/kitty/themes/noctalia.conf
+.config/nvim/lua/matugen.lua
+.config/qt5ct/colors/noctalia.conf
+.config/qt6ct/colors/noctalia.conf
+.local/share/color-schemes/noctalia.colors
+
+# Machine-local. Written on first apply by run_once_after_40-hypr-monitors.sh
+# and owned by that machine from then on; see .local/bin/hypr-monitors.
+.config/hypr/monitors.lua
+
+# Generated at bootstrap by `mise run shell-integration` and `mise run
+# fish-plugins` (both fire from the postinstall hook in mise/config.toml).
+# fish_plugins is the tracked manifest; everything fisher lays down from it is
+# not.
+.config/fish/completions
+.config/fish/conf.d/fzf.fish
+.config/fish/conf.d/zoxide.fish
+.config/fish/functions/_fzf_*
+.config/fish/functions/fisher.fish
+.config/fish/functions/fzf_configure_bindings.fish
+.config/fish/functions/wt.fish
+
+# Fish universal variables: fisher's install bookkeeping plus plugin defaults.
+# Machine state, not configuration.
+.config/fish/fish_variables
+
+# Upstream checkout, cloned by run_onchange_after_30-user-tools.sh because
+# .config/ghostty/config.ghostty points custom-shader at two files in it.
+.config/ghostty/shaders
+
+# LazyVim writes this; lazy-lock.json is the pin that matters.
+.config/nvim/lazyvim.json

@@ -1,6 +1,6 @@
 ---
 name: codex-review
-description: Adversarial second-opinion review by Codex gpt-5.6-sol at xhigh reasoning, read-only, followed by up to two Claude rebuttal rounds. Say what to review in plain language — this session's work (a plan or code changes), the working branch against an explicit, recorded, or default base, or a named set of files. Manual invocation only.
+description: Adversarial second-opinion review by Codex gpt-6-astra at high reasoning, read-only, followed by up to two Claude rebuttal rounds. Say what to review in plain language — this session's work (a plan or code changes), the working branch against an explicit, recorded, or default base, or a named set of files. Manual invocation only.
 disable-model-invocation: true
 argument-hint: "<what to review, in your own words>"
 allowed-tools: mcp__codex__codex, mcp__codex__codex-reply, Agent, AskUserQuestion, Read, Write, Grep, Glob, Bash
@@ -248,8 +248,8 @@ forfeits that overlap.
 ```
 mcp__codex__codex
   prompt:  see below
-  model:   "gpt-5.6-sol"
-  config:  { "model_reasoning_effort": "xhigh" }
+  model:   "gpt-6-astra"
+  config:  { "model_reasoning_effort": "high" }
   cwd:     the review root, resolved in step 2
 ```
 

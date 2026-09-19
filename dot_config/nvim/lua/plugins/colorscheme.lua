@@ -1,14 +1,14 @@
 return {
+  -- Noctalia drives the palette via lua/matugen.lua (see plugins/base16.lua).
+  { "folke/tokyonight.nvim", enabled = false },
+  { "catppuccin/nvim", enabled = false },
   {
-    "folke/tokyonight.nvim",
-    lazy = false,
-    priority = 1000,
+    "LazyVim/LazyVim",
     opts = {
-      style = "night",
+      colorscheme = function()
+        local ok, matugen = pcall(require, "matugen")
+        if ok then matugen.setup() end
+      end,
     },
-    config = function(_, opts)
-      require("tokyonight").setup(opts)
-      vim.cmd.colorscheme("tokyonight")
-    end,
   },
 }

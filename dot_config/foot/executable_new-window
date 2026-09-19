@@ -1,0 +1,14 @@
+#!/usr/bin/bash
+# Ask the active Foot window to spawn using the directory reported by its shell.
+# This also selects the active tab when Foot windows are grouped by Hyprland.
+address=$(hyprctl -j activewindow 2>/dev/null | jq -er '
+    select(.initialClass == "foot" or .initialClass == "footclient"
+        or .class == "foot" or .class == "footclient")
+    | .address | select(type == "string" and test("^0x[0-9a-fA-F]+$"))
+')
+
+if [[ -n "$address" ]]; then
+    exec hyprctl dispatch "hl.dsp.send_shortcut({ mods = 'CTRL SHIFT', key = 'n', window = 'address:$address' })"
+fi
+
+exec uwsm app -- foot

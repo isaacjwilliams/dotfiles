@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Claude Code URL Handler
+Comment=Handle claude-cli:// deep links for Claude Code
+# The mise shim, not the versioned install path Claude Code writes here itself:
+# every `mise up claude` moves that directory and leaves the entry dangling.
+Exec="{{ .chezmoi.homeDir }}/.local/share/mise/shims/claude" --handle-uri %u
+Type=Application
+NoDisplay=true
+MimeType=x-scheme-handler/claude-cli;

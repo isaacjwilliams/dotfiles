@@ -1,0 +1,15 @@
+# Worktree dev layout: Claude on the left, everything else tabbed on the right.
+#
+# One [column] block per tiled column, left to right. A column with two or
+# more commands becomes a tabbed group; the first command is the active tab.
+#
+# @ marks a program that sets its own window title; anything else gets its
+# title pinned to the command as written.
+
+[column]
+@claude
+
+[column]
+lazygit
+nvim .
+@fish
