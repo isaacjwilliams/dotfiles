@@ -1,124 +1,161 @@
 # Dotfiles
 
-Personal configuration managed with [chezmoi](https://www.chezmoi.io/) and
-intended primarily for Fedora Linux.
+Personal configuration for **CachyOS** with Hyprland, managed with
+[chezmoi](https://www.chezmoi.io/).
 
-## Bootstrap on Fedora
+A fresh machine goes from a stock CachyOS install to this one with a chezmoi
+init and a single apply. Packages, services, the login shell, and the mise
+toolchain are all set up by scripts in this repository — there is no separate
+bootstrap step to remember.
 
-Install the minimum bootstrap packages, initialize the chezmoi source, install
-Bash-it before applying (chezmoi manages files inside `~/.bash_it`), and then
-apply the dotfiles:
+## Bootstrap a new CachyOS machine
 
-```bash
-sudo dnf install bash chezmoi git
-chezmoi init https://github.com/isaacjwilliams/dotfiles.git
-git clone --depth=1 https://github.com/Bash-it/bash-it.git ~/.bash_it
-~/.bash_it/install.sh --no-modify-config
-chezmoi apply
-```
-
-Most directly required Fedora packages are available from the Fedora repos:
+Install CachyOS with the **Hyprland** desktop profile, then:
 
 ```bash
-sudo dnf install \
-  bash-completion btop curl desktop-file-utils fd-find fontconfig gcc gcc-c++ \
-  gh git-delta jq kitty make neovim ripgrep unzip wl-clipboard
+sudo pacman -S --needed chezmoi git
+chezmoi init --apply https://github.com/isaacjwilliams/dotfiles.git
 ```
 
-These configured programs use upstream-recommended COPRs on Fedora:
+That apply will:
+
+1. Install every package in `.chezmoidata/packages.toml`, repos first and then
+   the AUR through `paru`. Expect a long download and a couple of source
+   builds; it asks for your sudo password once, at the start.
+2. Write the configuration files.
+3. Enable the system services, add you to the `docker` and `realtime` groups,
+   and make fish your login shell.
+4. Run `mise install`, whose own postinstall hook bootstraps fisher, installs
+   the fish plugins, and regenerates the generated fish completions.
+5. Generate this machine's Hyprland monitor layout.
+
+Then finish by hand:
 
 ```bash
-sudo dnf install dnf5-plugins
-sudo dnf copr enable dejan/lazygit
-sudo dnf copr enable scottames/ghostty
-sudo dnf copr enable jdxcode/mise
-sudo dnf install ghostty lazygit mise
+sudo chwd -a          # GPU and other hardware drivers for *this* machine
+reboot                # picks up the new login shell, groups, and greetd
 ```
 
-Install Zed with its official Linux installer:
+After the reboot, sign in to the things that intentionally carry no credentials
+here: `gh auth login`, 1Password, Dropbox, Chrome, Spotify, Tailscale
+(`sudo tailscale up`), and `heroku login` / `stripe login` if you need them.
+
+Switch the remote to SSH once `gh auth login` has set up a key:
 
 ```bash
-curl -f https://zed.dev/install.sh | sh
+chezmoi cd
+git remote set-url origin git@github.com:isaacjwilliams/dotfiles.git
 ```
 
-Then install the tool versions declared in `~/.config/mise/config.toml`:
+### Use the same username
+
+Two keybinds in `hyprland-gui.lua` exec absolute paths — HyprMod writes them
+that way and rewrites the file on every save, so they cannot usefully be
+templated:
+
+```
+SUPER + Return      /home/isaac/.config/foot/new-window
+SUPER + SHIFT + Q   /home/isaac/.local/bin/wsclose
+```
+
+Create the account on the new machine as `isaac` and they just work. Under any
+other username, repoint those two binds in HyprMod after the first login.
+
+### What the bootstrap deliberately leaves alone
+
+Kernels, kernel headers, microcode, GPU drivers, and the bootloader are absent
+from the package list. The CachyOS installer and `chwd` choose those per
+machine, and copying this machine's answers (NVIDIA, Intel, Limine) onto
+different hardware would be wrong at best. `sudo chwd -a` is the step that
+gets the right GPU driver.
+
+## Scripts
+
+| Script | Runs | Does |
+| --- | --- | --- |
+| `run_onchange_before_10-packages.sh.tmpl` | when `.chezmoidata/packages.toml` changes | Installs missing repo and AUR packages. Works out what is missing first and exits without touching pacman when the answer is nothing, so it is not a surprise `-Syu` on every apply. |
+| `run_onchange_after_20-system.sh` | when its own unit/group list changes | Enables services, adds group memberships, sets fish as the login shell. |
+| `run_onchange_after_30-user-tools.sh` | when edited | `mise install`, plus the Ghostty cursor-shader checkout. |
+| `run_once_after_40-hypr-monitors.sh` | once per machine | Writes `~/.config/hypr/monitors.lua` from the monitors Hyprland can see. |
+
+## Monitors are per-machine
+
+HyprMod owns `~/.config/hypr/hyprland-gui.lua` and rewrites it wholesale on
+every save, monitor block included — so whichever machine last opened HyprMod
+puts *its* outputs and refresh rates into this repository.
+
+`hyprland.lua` therefore ends with `pcall(require, "monitors")`. That file is
+generated per machine, is listed in `.chezmoiignore`, and never travels. Because
+it loads last it wins over the stale block in `hyprland-gui.lua`.
 
 ```bash
-mise install
+hypr-monitors --force && hyprctl reload   # after changing displays
 ```
 
-That Mise config installs Node.js, Ruby, Rust, LazyDocker, and the OpenAI Codex
-CLI. The versions in the config are intentional pins except for Rust and Codex,
-which currently follow `latest`.
+With no Hyprland session to query it falls back to Hyprland's catch-all rule
+(every output, preferred mode, auto position), which works anywhere but is
+probably not the layout you want — rerun it from inside the session.
 
-## Managed configuration and dependencies
+## Managed configuration
 
-Paths below are destination paths in the home directory. A directory glob means
-all files from that group that are present in the chezmoi source, not the entire
-live directory.
+Paths are destinations in `$HOME`. A directory glob means the files from that
+group that are in the chezmoi source, not the whole live directory.
 
-| Managed path(s) | Configures | Direct dependencies and notes | Fedora / upstream source |
-| --- | --- | --- | --- |
-| `.chezmoiignore`, source `README.md` | chezmoi | `chezmoi`; Git for source history. The README and generated Neovim `lazyvim.json` are not applied to `$HOME`. | [Fedora chezmoi package](https://packages.fedoraproject.org/pkgs/chezmoi/chezmoi/), [chezmoi](https://www.chezmoi.io/) |
-| `.bashrc`, `.bash_profile`, `.bash_it/aliases/*`, `.bash_it/custom/*` | Bash and Bash-it | Bash-it with the `bobby` theme; `git`; `mise`; Worktrunk (`wt`); `zmx`; Kitty remote control for the `za` helper; and `desktop-file-edit` from `desktop-file-utils`. Only custom Bash-it files are managed—the upstream installation is not. | Fedora `bash`, `bash-completion`, `git`, and `desktop-file-utils`; [Bash-it installation](https://bash-it.readthedocs.io/en/latest/installation/) |
-| `.codex/rules/default.rules` | OpenAI Codex CLI | Codex is installed by Mise from `npm:@openai/codex`. The tracked Rails rules reference Bundler, RSpec, Rails, RuboCop, and the Semaphore CLI (`sem`). | [Codex CLI](https://learn.chatgpt.com/docs/codex/cli), [Semaphore CLI](https://docs.semaphoreci.com/EE/reference/semaphore-cli) |
-| `.config/btop/btop.conf` | btop | No non-system dependency; it currently uses btop's default theme. | [Fedora btop package](https://packages.fedoraproject.org/pkgs/btop/), [btop](https://github.com/aristocratos/btop) |
-| `.config/gh/config.yml` | GitHub CLI | `gh` and Git. Authentication in `hosts.yml` is intentionally not managed. | Fedora `gh`, [GitHub CLI](https://cli.github.com/) |
-| `.config/ghostty/config.ghostty`, `.config/ghostty/themes/*` | Ghostty | The Tokyo Night theme is tracked locally, so no separate theme download is required. | [Ghostty Fedora installation](https://ghostty.org/docs/install/binary) |
-| `.config/kitty/kitty.conf`, `.config/kitty/theme.conf`, `.config/kitty/themes/*` | Kitty | The active Catppuccin Mocha theme and symlink are tracked. Remote control is enabled for the Bash `za` helper. | Fedora `kitty`, [Kitty](https://sw.kovidgoyal.net/kitty/), [Catppuccin theme source](https://github.com/catppuccin/kitty) |
-| `.config/lazygit/config.yml` | LazyGit | Git and `delta`; both configured pagers invoke `delta`. | [LazyGit Fedora/COPR instructions](https://github.com/jesseduffield/lazygit#fedora--amazon-linux-2023--centos-stream), [Fedora git-delta package](https://packages.fedoraproject.org/pkgs/rust-git-delta/git-delta/) |
-| `.config/mise/config.toml` | Mise | Installs LazyDocker 0.24.3, Node.js 25.2.1, Ruby 3.4.2, latest Rust, and latest `@openai/codex`. Network access to the corresponding registries is required by `mise install`. | [Mise Fedora installation](https://mise.jdx.dev/installing-mise.html) |
-| `.config/nvim/init.lua`, `.config/nvim/lazy-lock.json`, `.config/nvim/lua/plugins/*`, `.config/nvim/AGENTS.md` | Neovim with LazyVim | Git and GitHub SSH authentication for plugin clones; `ripgrep`, `fd`, a compiler/toolchain, `wl-clipboard`, and a Nerd Font. Ruby/TypeScript extras use the Ruby and Node toolchains from Mise; Rails testing uses Bundler/RSpec. `lazy.nvim` and Mason install editor plugins and language tooling. | Fedora `neovim`, `ripgrep`, `fd-find`, compiler packages, and `wl-clipboard`; [Neovim](https://neovim.io/), [LazyVim](https://www.lazyvim.org/), [Nerd Fonts](https://github.com/ryanoasis/nerd-fonts) |
-| `.config/worktrunk/config.toml` | Worktrunk (`wt`) | Git; Bash shell integration; Codex CLI and `jq` for generated commit messages. Project-specific approval and lock files are intentionally not managed. | [Worktrunk](https://worktrunk.dev/) |
-| `.config/zed/keymap.json`, `.config/zed/settings.json` | Zed | Git; EnvyCodeR Nerd Font Mono; Ruby LSP and RuboCop from project bundles; ESLint from project Node dependencies; `npx` for Chrome DevTools MCP; the Zed registry `codex-acp` agent server; and project commands using Bundler, RSpec, Rails, RuboCop, and `sem`. | [Zed on Linux](https://zed.dev/docs/linux), [Nerd Fonts releases](https://github.com/ryanoasis/nerd-fonts/releases) |
-| `.gitconfig` | Git | Neovim as editor and `delta` as pager/diff filter. | Fedora `git` and `git-delta`; [Git](https://git-scm.com/), [delta](https://github.com/dandavison/delta) |
-
-## Additional installations
-
-The following are referenced by managed config but are not Fedora base packages
-or are intentionally installed outside DNF:
-
-- [Worktrunk](https://worktrunk.dev/): `cargo install worktrunk`.
-- [zmx](https://zmx.sh/): use the upstream Linux binary or build with Zig. Bash
-  completion, prompt integration, and Kitty shortcuts are managed here.
-- [Semaphore CLI](https://docs.semaphoreci.com/EE/reference/semaphore-cli): needed
-  only for the tracked `sem` Codex/Zed project workflows; its auth config stays
-  local.
-- [EnvyCodeR Nerd Font](https://github.com/ryanoasis/nerd-fonts/releases): install
-  it under `~/.local/share/fonts` and run `fc-cache -f` for the Zed font setting.
-
-Ruby/Rails tools such as RSpec, RuboCop, Ruby LSP, and Rails should normally come
-from each project's bundle rather than global Fedora gems. ESLint should
-normally come from each project's Node dependencies.
+| Managed path(s) | Configures | Notes |
+| --- | --- | --- |
+| `.chezmoiignore`, `.chezmoidata/packages.toml`, source `README.md` | chezmoi | The package manifest and the ignore list. Neither the README nor `.chezmoidata` is applied to `$HOME`. |
+| `.config/fish/config.fish`, `conf.d/{abbreviations,vim,local-bin}.fish`, `functions/fish_{title,user_key_bindings}.fish`, `fish_plugins` | fish | Layers on `cachyos-fish-config`. Vi bindings with the emacs set still live, abbreviations as the source of truth for aliases, and the fzf.fish rebinding fix. `fish_plugins` is the fisher manifest; fisher itself and everything it installs are generated at bootstrap. |
+| `.config/hypr/hyprland.lua`, `hyprland-gui.lua`, `xdph.conf`, `layouts/dev.layout` | Hyprland | `hyprland-gui.lua` is HyprMod's output; `hyprland.lua` holds only what HyprMod cannot round-trip (spring curves, Lua binds, gestures, groupbar geometry). `dev.layout` is read by `devlay`. |
+| `.config/noctalia/config.toml` | Noctalia shell | The palette source. Every `noctalia.*` theme file it renders is ignored — see below. |
+| `.config/uwsm/env` | Wayland session | `BROWSER`, Qt platform theme, cursor theme and size. Read by uwsm at login. |
+| `.config/gtk-3.0/{settings.ini,gtk.css}`, `.config/gtk-4.0/gtk.css`, `.config/qt6ct/qt6ct.conf`, `.config/kdeglobals`, `.icons/default/index.theme` | GTK, Qt, KDE theming | adw-gtk3, Fusion/qt6ct, breeze icons, Bibata-Modern-Ice cursors. The `gtk.css` files are one `@import` of Noctalia's generated CSS. `kdeglobals` is mostly a cached copy of Noctalia's palette; it is tracked for `TerminalApplication` and `ColorScheme`, and re-importing it after a palette change is expected. |
+| `.config/ghostty/config.ghostty` | Ghostty | Font size, opacity, blur, and two custom cursor shaders. The shaders are an upstream checkout, cloned at bootstrap rather than vendored. |
+| `.config/kitty/kitty.conf`, `.config/alacritty/alacritty.toml`, `.config/foot/{foot.ini,new-window}` | Kitty, Alacritty, foot | All three include their Noctalia theme file. `new-window` asks the focused foot window to spawn in its own cwd. |
+| `.config/btop/btop.conf`, `.config/micro/settings.json`, `.config/satty/config.toml` | btop, micro, satty | |
+| `.config/mise/config.toml` | mise | The whole non-distro toolchain plus the tasks that bootstrap it: `shell-integration`, `fish-plugins`, `node-corepack`, and the local Postgres cluster helpers. Its `postinstall` hook is what makes `mise install` enough. |
+| `.config/nvim/init.lua`, `lazy-lock.json`, `lua/config/*`, `lua/plugins/*`, `AGENTS.md` | Neovim / LazyVim | `lazy.nvim` clones itself on first launch; Mason installs language tooling. Ruby and Node come from mise. |
+| `.config/lazygit/config.yml`, `.config/gh/config.yml`, `.config/worktrunk/config.toml`, `.gitconfig` | Git tooling | delta as pager and diff filter. `gh`'s `hosts.yml` and worktrunk's approval/lock files are intentionally not managed. |
+| `.config/dolphinrc`, `.config/mimeapps.list`, `.config/chrome-flags.conf`, `.config/autostart/*.desktop`, `.local/share/applications/claude-code-url-handler.desktop` | Desktop integration | Default applications, Chrome's keyring flag, 1Password and Dropbox autostart. The Claude Code URL handler is templated onto the mise shim so a `mise up claude` cannot leave it dangling. |
+| `.local/bin/{devlay,wsclose,hypr-monitors}` | Hyprland helpers | `devlay` opens a layout of windows on an empty workspace; `wsclose` closes a workspace without force-killing shared-process clients; `hypr-monitors` writes the per-machine monitor file. |
+| `.claude/*`, `.codex/skills/*` | Claude Code, Codex | Settings, statusline, MCP proxy, and skills — including `sync-chezmoi-dotfiles`, which is the procedure for importing live changes back into this repo. |
 
 ## Deliberately not managed
 
-This repo uses an allowlist approach. It does not copy whole application
-directories merely because they live under `~/.config`.
+This repo is an allowlist. It does not copy whole application directories just
+because they live under `~/.config`.
 
-- Credentials and identity material: `.netrc`, `.ssh`, `.gnupg`,
-  `.bundle/config`, `.sem.yaml`, `.config/gh/hosts.yml`, `.config/ngrok`,
-  `.papertrail.yml`, and application login/session databases.
-- Upstream installations and vendored collections: most of `.bash_it`,
-  `.config/kitty/kitty-themes`, Mise-installed runtimes, application binaries,
-  and `node_modules`.
-- Generated or machine-local state: caches, histories, logs, databases, browser
-  profiles, desktop-environment state, Neovim's `nvim.log` and `lazyvim.json`,
-  Worktrunk approval/lock files, and empty/default configs such as LazyDocker's
-  current config.
+- **Credentials and identity.** `.ssh`, `.gnupg`, `.config/gh/hosts.yml`,
+  `.codex/auth.json`, `.bundle/config`, `.sem.yaml`, 1Password/Chrome/Dropbox
+  profiles and login databases. chezmoi's `private_` prefix preserves
+  restrictive permissions — it does **not** encrypt. Secrets are omitted, not
+  committed.
+- **Noctalia's generated theme files.** Noctalia rewrites them from
+  `.config/noctalia/config.toml` on every palette change. The wiring that
+  references them is tracked; the color values are not. See `.chezmoiignore`.
+- **Anything fisher or mise generates.** `.config/fish/completions`,
+  `conf.d/{fzf,zoxide}.fish`, the `_fzf_*` and `wt` functions, and
+  `fish_variables`. `fish_plugins` is the tracked manifest they come from.
+- **Upstream checkouts.** `.config/ghostty/shaders`, `lazy.nvim` and its
+  plugins, Mason's tooling, mise's installed runtimes.
+- **Machine-local state.** `.config/hypr/monitors.lua`, caches, histories,
+  browser profiles, `nvim`'s `lazyvim.json`, worktrunk approvals.
 
-Chezmoi's `private_` source-name prefix preserves restrictive file permissions;
-it does **not** encrypt file contents. Authentication files are omitted rather
-than committed in plaintext.
+Ruby and Rails tooling (RSpec, RuboCop, Ruby LSP) should come from each
+project's bundle, and ESLint from each project's Node dependencies, rather than
+being installed globally.
 
 ## Updating
 
-Review and add individual files so the privacy boundary remains explicit:
+Add files individually so the privacy boundary stays explicit:
 
 ```bash
 chezmoi status
 chezmoi diff
 chezmoi add --secrets error ~/.config/example/config
-chezmoi cd
-git status
+chezmoi cd && git status
 ```
+
+`.codex/skills/sync-chezmoi-dotfiles` documents this loop in full.
+
+To add a package, edit `.chezmoidata/packages.toml` and run `chezmoi apply`;
+the change to the list is what makes the install script run again.

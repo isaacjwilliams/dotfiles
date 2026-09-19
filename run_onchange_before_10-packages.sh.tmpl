@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+#
+# Install every repo and AUR package this configuration expects.
+#
+# `run_onchange_` rather than `run_once_`: the package names are interpolated
+# into this script, so editing .chezmoidata/packages.toml changes the rendered
+# content and the next `chezmoi apply` re-runs it.
+#
+# `before_` so that the same apply which writes ~/.config/fish, ~/.config/hypr
+# and friends lands on a machine that already has the programs those files
+# configure.
+#
+# This is a bootstrap, not an updater: it works out what is missing first and
+# does nothing at all when the answer is nothing. That matters because pacman
+# cannot install into a stale database without risking a partial upgrade, so
+# the one call below is a full `-Syu`. Running that unannounced on an
+# established machine every time someone types `chezmoi apply` would be rude.
+
+set -euo pipefail
+
+if ! command -v pacman >/dev/null 2>&1; then
+    echo "==> not an Arch-based system; skipping package install"
+    exit 0
+fi
+
+pacman_packages=(
+{{ range .packages.pacman -}}
+    {{ . | quote }}
+{{ end -}}
+)
+
+aur_packages=(
+{{ range .packages.aur -}}
+    {{ . | quote }}
+{{ end -}}
+)
+
+# base-devel is a group, not a package, so `pacman -Qq base-devel` fails even
+# when every member is installed. Fall back to checking the members.
+pkg_present() {
+    pacman -Qq -- "$1" >/dev/null 2>&1 && return 0
+
+    local members member
+    members=$(pacman -Sgq -- "$1" 2>/dev/null) || return 1
+    [ -n "$members" ] || return 1
+
+    while read -r member; do
+        pacman -Qq -- "$member" >/dev/null 2>&1 || return 1
+    done <<<"$members"
+}
+
+missing_pacman=()
+for pkg in "${pacman_packages[@]}"; do
+    pkg_present "$pkg" || missing_pacman+=("$pkg")
+done
+
+missing_aur=()
+for pkg in "${aur_packages[@]}"; do
+    pkg_present "$pkg" || missing_aur+=("$pkg")
+done
+
+if [ ${#missing_pacman[@]} -eq 0 ] && [ ${#missing_aur[@]} -eq 0 ]; then
+    echo "==> all $((${#pacman_packages[@]} + ${#aur_packages[@]})) packages already installed"
+    exit 0
+fi
+
+# Ask for the password once, up front, rather than halfway through a long
+# download where the prompt is easy to miss.
+echo "==> sudo is needed to install ${#missing_pacman[@]} repo and ${#missing_aur[@]} AUR packages"
+sudo -v
+
+if [ ${#missing_pacman[@]} -gt 0 ]; then
+    echo "==> pacman: ${missing_pacman[*]}"
+    sudo pacman -Syu --needed --noconfirm -- "${missing_pacman[@]}"
+fi
+
+if [ ${#missing_aur[@]} -eq 0 ]; then
+    exit 0
+fi
+
+if ! command -v paru >/dev/null 2>&1; then
+    echo "==> paru missing after the pacman run; skipping AUR packages" >&2
+    exit 0
+fi
+
+# One package per call. These build from source and pull large upstream
+# binaries, so a single failure should not cost the whole set.
+echo "==> AUR: ${missing_aur[*]}"
+for pkg in "${missing_aur[@]}"; do
+    echo "    building $pkg"
+    paru -S --needed --noconfirm --skipreview -- "$pkg" ||
+        echo "    !! $pkg failed; install it by hand later" >&2
+done
