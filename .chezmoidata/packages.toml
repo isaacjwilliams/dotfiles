@@ -31,6 +31,9 @@ standard = [
   "foot",
   "ghostty",
 
+  # Terminal multiplexer.
+  "zellij",
+
   # Fonts named by tracked config. foot.ini asks for JetBrains Mono and Symbols
   # Nerd Font, satty for Space Mono. On this machine the first two existed only
   # as copies hand-extracted from the Ghostty binary into ~/.local/share/fonts.
