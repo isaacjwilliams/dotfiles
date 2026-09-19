@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 #
-# Install every repo and AUR package this configuration expects.
+# Install the packages this configuration needs on top of a CachyOS Hyprland
+# install, using shelly -- which CachyOS ships, so there is nothing to bootstrap
+# before it can run, and which drives libalpm directly for repo *and* AUR
+# packages.
 #
 # `run_onchange_` rather than `run_once_`: the package names are interpolated
 # into this script, so editing .chezmoidata/packages.toml changes the rendered
@@ -11,10 +14,10 @@
 # configure.
 #
 # This is a bootstrap, not an updater: it works out what is missing first and
-# does nothing at all when the answer is nothing. That matters because pacman
-# cannot install into a stale database without risking a partial upgrade, so
-# the one call below is a full `-Syu`. Running that unannounced on an
-# established machine every time someone types `chezmoi apply` would be rude.
+# does nothing at all when the answer is nothing. That matters because the repo
+# install below syncs and upgrades in the same transaction -- installing against
+# a stale database is how Arch systems get partially upgraded -- and firing that
+# unannounced on every `chezmoi apply` would be rude.
 
 set -euo pipefail
 
@@ -23,8 +26,8 @@ if ! command -v pacman >/dev/null 2>&1; then
     exit 0
 fi
 
-pacman_packages=(
-{{ range .packages.pacman -}}
+standard_packages=(
+{{ range .packages.standard -}}
     {{ . | quote }}
 {{ end -}}
 )
@@ -35,59 +38,50 @@ aur_packages=(
 {{ end -}}
 )
 
-# base-devel is a group, not a package, so `pacman -Qq base-devel` fails even
-# when every member is installed. Fall back to checking the members.
-pkg_present() {
-    pacman -Qq -- "$1" >/dev/null 2>&1 && return 0
-
-    local members member
-    members=$(pacman -Sgq -- "$1" 2>/dev/null) || return 1
-    [ -n "$members" ] || return 1
-
-    while read -r member; do
-        pacman -Qq -- "$member" >/dev/null 2>&1 || return 1
-    done <<<"$members"
-}
-
-missing_pacman=()
-for pkg in "${pacman_packages[@]}"; do
-    pkg_present "$pkg" || missing_pacman+=("$pkg")
+# `pacman -Qq` is the query here even though shelly does the installing: it is
+# the same local database, and it answers without a sudo prompt.
+missing_standard=()
+for pkg in "${standard_packages[@]}"; do
+    pacman -Qq -- "$pkg" >/dev/null 2>&1 || missing_standard+=("$pkg")
 done
 
 missing_aur=()
 for pkg in "${aur_packages[@]}"; do
-    pkg_present "$pkg" || missing_aur+=("$pkg")
+    pacman -Qq -- "$pkg" >/dev/null 2>&1 || missing_aur+=("$pkg")
 done
 
-if [ ${#missing_pacman[@]} -eq 0 ] && [ ${#missing_aur[@]} -eq 0 ]; then
-    echo "==> all $((${#pacman_packages[@]} + ${#aur_packages[@]})) packages already installed"
+if [ ${#missing_standard[@]} -eq 0 ] && [ ${#missing_aur[@]} -eq 0 ]; then
+    echo "==> all $((${#standard_packages[@]} + ${#aur_packages[@]})) packages already installed"
     exit 0
 fi
 
-# Ask for the password once, up front, rather than halfway through a long
-# download where the prompt is easy to miss.
-echo "==> sudo is needed to install ${#missing_pacman[@]} repo and ${#missing_aur[@]} AUR packages"
+if ! command -v shelly >/dev/null 2>&1; then
+    echo "!! shelly not found -- is this a CachyOS install?" >&2
+    echo "   install it with: sudo pacman -S shelly" >&2
+    exit 1
+fi
+
+# shelly shells out to sudo for the transaction itself, so prime the credential
+# cache here rather than letting a password prompt appear halfway through a long
+# download where it is easy to miss.
+echo "==> sudo is needed to install ${#missing_standard[@]} repo and ${#missing_aur[@]} AUR packages"
 sudo -v
 
-if [ ${#missing_pacman[@]} -gt 0 ]; then
-    echo "==> pacman: ${missing_pacman[*]}"
-    sudo pacman -Syu --needed --noconfirm -- "${missing_pacman[@]}"
+if [ ${#missing_standard[@]} -gt 0 ]; then
+    echo "==> repo: ${missing_standard[*]}"
+    # -u syncs and upgrades before installing, in one transaction.
+    shelly install standard -n -u --needed "${missing_standard[@]}"
 fi
 
 if [ ${#missing_aur[@]} -eq 0 ]; then
     exit 0
 fi
 
-if ! command -v paru >/dev/null 2>&1; then
-    echo "==> paru missing after the pacman run; skipping AUR packages" >&2
-    exit 0
-fi
-
-# One package per call. These build from source and pull large upstream
+# One package per call: these build from source and pull large upstream
 # binaries, so a single failure should not cost the whole set.
 echo "==> AUR: ${missing_aur[*]}"
 for pkg in "${missing_aur[@]}"; do
     echo "    building $pkg"
-    paru -S --needed --noconfirm --skipreview -- "$pkg" ||
+    shelly install aur -n "$pkg" ||
         echo "    !! $pkg failed; install it by hand later" >&2
 done

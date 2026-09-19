@@ -10,7 +10,9 @@ bootstrap step to remember.
 
 ## Bootstrap a new CachyOS machine
 
-Install CachyOS with the **Hyprland** desktop profile, then:
+Install CachyOS with the **Hyprland** desktop profile. That profile is the
+baseline this repo builds on — see [Which packages are listed](#which-packages-are-listed).
+Then:
 
 ```bash
 sudo pacman -S --needed chezmoi git
@@ -19,9 +21,9 @@ chezmoi init --apply https://github.com/isaacjwilliams/dotfiles.git
 
 That apply will:
 
-1. Install every package in `.chezmoidata/packages.toml`, repos first and then
-   the AUR through `paru`. Expect a long download and a couple of source
-   builds; it asks for your sudo password once, at the start.
+1. Install the packages in `.chezmoidata/packages.toml` with `shelly`, repos
+   first and then the AUR. Expect a couple of source builds; it asks for your
+   sudo password once, at the start.
 2. Write the configuration files.
 3. Enable the system services, add you to the `docker` and `realtime` groups,
    and make fish your login shell.
@@ -61,19 +63,43 @@ SUPER + SHIFT + Q   /home/isaac/.local/bin/wsclose
 Create the account on the new machine as `isaac` and they just work. Under any
 other username, repoint those two binds in HyprMod after the first login.
 
-### What the bootstrap deliberately leaves alone
+### Which packages are listed
 
-Kernels, kernel headers, microcode, GPU drivers, and the bootloader are absent
-from the package list. The CachyOS installer and `chwd` choose those per
-machine, and copying this machine's answers (NVIDIA, Intel, Limine) onto
-different hardware would be wrong at best. `sudo chwd -a` is the step that
-gets the right GPU driver.
+`.chezmoidata/packages.toml` is a *delta*, not an inventory. A CachyOS install
+with the Hyprland profile already provides around 148 of the packages this
+machine has explicitly installed — `hyprland`, `cachyos-hypr-noctalia`,
+`noctalia-greeter`, `dolphin`, `kitty`, the pipewire and bluez stacks, the font
+set, `shelly` itself. Repeating them here would be 148 lines that say nothing
+about what was actually chosen, so the manifest lists only the ~25 that are.
+
+The trade-off: **pick the wrong desktop profile and this manifest will not
+correct it.** One package is listed despite being a CachyOS package for exactly
+that reason — `cachyos-fish-config`, which the installer adds only when fish is
+chosen as the shell, and whose `cachyos-config.fish` is sourced on the first
+line of the tracked `config.fish`.
+
+Also absent, because the installer decides them per machine: kernels, headers,
+microcode, GPU drivers, the bootloader, and the filesystem and boot-splash
+tooling that follows from them. Copying this machine's answers (NVIDIA, Intel,
+Limine, Btrfs) onto different hardware would be wrong at best. `sudo chwd -a`
+is the step that gets the right GPU driver.
+
+### Why shelly
+
+`shelly` handles repo, AUR and Flatpak packages through libalpm directly, and
+CachyOS installs it as part of every profile — so unlike `paru` or `yay` there
+is nothing to bootstrap before the package script can run. It is also what
+installed the AUR packages on this machine.
+
+`shelly backup --export` writes a manifest in almost the same shape as
+`packages.toml`; it is a reasonable way to check what this file is missing,
+though it exports the full explicit set rather than the delta.
 
 ## Scripts
 
 | Script | Runs | Does |
 | --- | --- | --- |
-| `run_onchange_before_10-packages.sh.tmpl` | when `.chezmoidata/packages.toml` changes | Installs missing repo and AUR packages. Works out what is missing first and exits without touching pacman when the answer is nothing, so it is not a surprise `-Syu` on every apply. |
+| `run_onchange_before_10-packages.sh.tmpl` | when `.chezmoidata/packages.toml` changes | Installs missing repo and AUR packages with `shelly`. Works out what is missing first and exits without touching the package database when the answer is nothing, so the sync-and-upgrade it would otherwise do is not a surprise on every apply. |
 | `run_onchange_after_20-system.sh` | when its own unit/group list changes | Enables services, adds group memberships, sets fish as the login shell. |
 | `run_onchange_after_30-user-tools.sh` | when edited | `mise install`, plus the Ghostty cursor-shader checkout. |
 | `run_once_after_40-hypr-monitors.sh` | once per machine | Writes `~/.config/hypr/monitors.lua` from the monitors Hyprland can see. |
@@ -103,7 +129,7 @@ group that are in the chezmoi source, not the whole live directory.
 
 | Managed path(s) | Configures | Notes |
 | --- | --- | --- |
-| `.chezmoiignore`, `.chezmoidata/packages.toml`, source `README.md` | chezmoi | The package manifest and the ignore list. Neither the README nor `.chezmoidata` is applied to `$HOME`. |
+| `.chezmoiignore`, `.chezmoidata/packages.toml`, source `README.md` | chezmoi | The package delta and the ignore list. Neither the README nor `.chezmoidata` is applied to `$HOME`. |
 | `.config/fish/config.fish`, `conf.d/{abbreviations,vim,local-bin}.fish`, `functions/fish_{title,user_key_bindings}.fish`, `fish_plugins` | fish | Layers on `cachyos-fish-config`. Vi bindings with the emacs set still live, abbreviations as the source of truth for aliases, and the fzf.fish rebinding fix. `fish_plugins` is the fisher manifest; fisher itself and everything it installs are generated at bootstrap. |
 | `.config/hypr/hyprland.lua`, `hyprland-gui.lua`, `xdph.conf`, `layouts/dev.layout` | Hyprland | `hyprland-gui.lua` is HyprMod's output; `hyprland.lua` holds only what HyprMod cannot round-trip (spring curves, Lua binds, gestures, groupbar geometry). `dev.layout` is read by `devlay`. |
 | `.config/noctalia/config.toml` | Noctalia shell | The palette source. Every `noctalia.*` theme file it renders is ignored — see below. |
@@ -158,4 +184,6 @@ chezmoi cd && git status
 `.codex/skills/sync-chezmoi-dotfiles` documents this loop in full.
 
 To add a package, edit `.chezmoidata/packages.toml` and run `chezmoi apply`;
-the change to the list is what makes the install script run again.
+the change to the list is what makes the install script run again. `shelly
+backup --export` lists everything explicitly installed, which is the quickest
+way to spot something the manifest has not caught.
