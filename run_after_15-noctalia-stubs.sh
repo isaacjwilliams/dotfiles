@@ -23,6 +23,14 @@
 # Not listed: .config/hypr/noctalia.lua and .config/nvim/lua/matugen.lua. Both
 # are Lua modules whose callers already pcall the require, and an empty .lua
 # would load as `true` and break the call that follows.
+#
+# Also not listed: .config/zellij/themes/noctalia.kdl, which inverts the rule
+# this script is built on -- for zellij the missing file is the safe state and
+# the stub is the fatal one. It tolerates `theme "noctalia"` resolving to
+# nothing and falls back to its own palette, but every file under themes/ must
+# parse as KDL *and* contain a theme node. Empty, `# `-commented (not a KDL
+# comment at all) and `// `-commented placeholders each abort startup with a
+# parse error, which is the very failure this script exists to prevent.
 
 set -euo pipefail
 

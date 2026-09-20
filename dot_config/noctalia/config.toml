@@ -88,7 +88,7 @@ wallpaper_scheme = "m3-tonal-spot"
 
     [theme.templates]
     builtin_ids = [ "btop", "ghostty", "gtk3", "gtk4", "kcolorscheme", "kitty", "qt", "alacritty", "foot" ]
-    community_ids = [ "neovim" ]
+    community_ids = [ "neovim", "zellij" ]
 
 [widget.clock]
 color = "secondary"
