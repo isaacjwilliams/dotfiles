@@ -95,6 +95,20 @@ if [ ! -t 0 ]; then
     exit 0
 fi
 
+# Repair shelly's directory ownership before building anything.
+#
+# On a fresh CachyOS install these come out owned by root, and an AUR build
+# then cannot write the sources it just fetched. It fails as "Failed to
+# download package sources" and surfaces as AurOperationFailed / BuildFailed,
+# which reads like a broken toolchain -- a hand-run makepkg in some other
+# directory works fine, because the problem is whose directory shelly is using.
+# The GUI fails the same way, and a reboot does not help.
+#
+# This is shelly's own repair for it. On a healthy machine it changes nothing,
+# and sudo is already primed above, so it costs one silent call. Never fatal:
+# the AUR half is best-effort anyway.
+sudo -n true 2>/dev/null && shelly utility --fix-permissions -n >/dev/null 2>&1 || true
+
 # One package per call: these build from source and pull large upstream
 # binaries, so a single failure should not cost the whole set.
 echo "==> AUR: ${missing_aur[*]}"

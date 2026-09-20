@@ -97,6 +97,14 @@ installed the AUR packages on this machine.
 `packages.toml`; it is a reasonable way to check what this file is missing,
 though it exports the full explicit set rather than the delta.
 
+On a fresh CachyOS install shelly's own directories can come out owned by
+root, and an AUR build then cannot write the sources it just fetched. It
+reports "Failed to download package sources" and `AurOperationFailed`, which
+looks like a broken build toolchain — but a hand-run `makepkg` in any other
+directory succeeds, the GUI fails identically, and a reboot changes nothing.
+`shelly utility --fix-permissions` is the repair; the package script runs it
+before building so a new machine does not have to discover this.
+
 One sharp edge worth knowing: `-n/--no-confirm` does **not** mean yes to
 everything. shelly defines it as *safe* automatic answers, so for "Build
 packages from this PKGBUILD? (y/N)" it answers no and the install fails with
