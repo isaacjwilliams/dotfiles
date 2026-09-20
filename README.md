@@ -119,8 +119,33 @@ AUR through shelly also has a one-time risk warning to acknowledge first.
 | `run_onchange_before_10-packages.sh.tmpl` | when `.chezmoidata/packages.toml` changes | Installs missing repo and AUR packages with `shelly`. Works out what is missing first and exits without touching the package database when the answer is nothing, so the sync-and-upgrade it would otherwise do is not a surprise on every apply. Repo packages install unattended; AUR packages prompt. |
 | `run_after_15-noctalia-stubs.sh` | every apply | Creates empty placeholders for the Noctalia theme files tracked config includes, when Noctalia has not rendered them yet. Silent once they exist. |
 | `run_onchange_after_20-system.sh` | when its own unit/group list changes | Enables services, adds group memberships, sets fish as the login shell. |
+| `run_onchange_after_25-login-keyring.sh` | when edited | Wires `pam_gnome_keyring` into `/etc/pam.d/greetd`, so the login keyring is unlocked at login instead of by a dialog afterwards. Backs the file up and validates the rewrite before installing it. |
 | `run_onchange_after_30-user-tools.sh` | when edited | `mise install`, plus the Ghostty cursor-shader checkout. |
 | `run_once_after_40-hypr-monitors.sh` | once per machine | Writes `~/.config/hypr/monitors.lua` from the monitors Hyprland can see. |
+
+### The one file here that edits `/etc`
+
+`run_onchange_after_25-login-keyring.sh` is the only script that touches system
+configuration outside package installs, and what it touches is a PAM file — the
+one file on the machine that can lock you out of your own login. It is written
+to fail closed at every step: it exits early if the lines are already present,
+builds the replacement in a temp file, diffs that against the original to prove
+nothing but the two new lines changed, keeps a timestamped backup beside it, and
+renames into place rather than writing over the original.
+
+It is worth having because the symptom is otherwise baffling. A stock CachyOS
+Hyprland install wires nothing into greetd to unlock the GNOME keyring, so the
+login keyring stays locked through boot and the first thing that wants a secret
+— 1Password, Dropbox, Chrome — raises an unlock dialog every single session.
+The dialog is often KWallet's, because `kwalletd6` claims
+`org.freedesktop.secrets` when gnome-keyring has not, which sends you off
+trying to uninstall KWallet. You cannot: it arrives as a dependency of `kio`,
+under Dolphin, under the desktop profile. Disabling it only hands the prompt
+back to gnome-keyring. The keyring is the thing to fix, not the dialog.
+
+If the prompt survives this on a machine that already had a login keyring, the
+keyring's password is not the login password and PAM cannot open it. Delete
+`~/.local/share/keyrings/login.keyring` and log in again to have it recreated.
 
 ## Monitors are per-machine
 
