@@ -24,7 +24,8 @@ That apply will:
 1. Install the packages in `.chezmoidata/packages.toml` with `shelly`, repos
    first and then the AUR. Expect a couple of source builds; it asks for your
    sudo password once, at the start.
-2. Write the configuration files.
+2. Write the configuration files, and stub out the Noctalia theme files they
+   include so nothing dangles before Noctalia's first run.
 3. Enable the system services, add you to the `docker` and `realtime` groups,
    and make fish your login shell.
 4. Run `mise install`, whose own postinstall hook bootstraps fisher, installs
@@ -100,6 +101,7 @@ though it exports the full explicit set rather than the delta.
 | Script | Runs | Does |
 | --- | --- | --- |
 | `run_onchange_before_10-packages.sh.tmpl` | when `.chezmoidata/packages.toml` changes | Installs missing repo and AUR packages with `shelly`. Works out what is missing first and exits without touching the package database when the answer is nothing, so the sync-and-upgrade it would otherwise do is not a surprise on every apply. |
+| `run_after_15-noctalia-stubs.sh` | every apply | Creates empty placeholders for the Noctalia theme files tracked config includes, when Noctalia has not rendered them yet. Silent once they exist. |
 | `run_onchange_after_20-system.sh` | when its own unit/group list changes | Enables services, adds group memberships, sets fish as the login shell. |
 | `run_onchange_after_30-user-tools.sh` | when edited | `mise install`, plus the Ghostty cursor-shader checkout. |
 | `run_once_after_40-hypr-monitors.sh` | once per machine | Writes `~/.config/hypr/monitors.lua` from the monitors Hyprland can see. |
@@ -132,7 +134,7 @@ group that are in the chezmoi source, not the whole live directory.
 | `.chezmoiignore`, `.chezmoidata/packages.toml`, source `README.md` | chezmoi | The package delta and the ignore list. Neither the README nor `.chezmoidata` is applied to `$HOME`. |
 | `.config/fish/config.fish`, `conf.d/{abbreviations,vim,local-bin}.fish`, `functions/fish_{title,user_key_bindings}.fish`, `fish_plugins` | fish | Layers on `cachyos-fish-config`. Vi bindings with the emacs set still live, abbreviations as the source of truth for aliases, and the fzf.fish rebinding fix. `fish_plugins` is the fisher manifest; fisher itself and everything it installs are generated at bootstrap. |
 | `.config/hypr/hyprland.lua`, `hyprland-gui.lua`, `xdph.conf`, `layouts/dev.layout` | Hyprland | `hyprland-gui.lua` is HyprMod's output; `hyprland.lua` holds only what HyprMod cannot round-trip (spring curves, Lua binds, gestures, groupbar geometry). `dev.layout` is read by `devlay`. |
-| `.config/noctalia/config.toml` | Noctalia shell | The palette source. Every `noctalia.*` theme file it renders is ignored — see below. |
+| `.config/noctalia/config.toml` | Noctalia shell | The palette source. Every `noctalia.*` theme file it renders is ignored — see below. Until Noctalia has rendered them once, the tracked config that includes them points at nothing; `run_after_15-noctalia-stubs.sh` covers that gap. |
 | `.config/uwsm/env` | Wayland session | `BROWSER`, Qt platform theme, cursor theme and size. Read by uwsm at login. |
 | `.config/gtk-3.0/{settings.ini,gtk.css}`, `.config/gtk-4.0/gtk.css`, `.config/qt6ct/qt6ct.conf`, `.config/kdeglobals`, `.icons/default/index.theme` | GTK, Qt, KDE theming | adw-gtk3, Fusion/qt6ct, breeze icons, Bibata-Modern-Ice cursors. The `gtk.css` files are one `@import` of Noctalia's generated CSS. `kdeglobals` is mostly a cached copy of Noctalia's palette; it is tracked for `TerminalApplication` and `ColorScheme`, and re-importing it after a palette change is expected. |
 | `.config/ghostty/config.ghostty` | Ghostty | Font size, opacity, blur, and two custom cursor shaders. The shaders are an upstream checkout, cloned at bootstrap rather than vendored. |
