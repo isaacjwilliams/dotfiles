@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+#
+# keyring-doctor -- work out which secret store is asking for a password.
+#
+# There are two secret services on a CachyOS Hyprland box and they look alike
+# from the outside: gnome-keyring (a hard dependency of cachyos-hypr-noctalia
+# since 1.2.6-1) and KWallet (a dependency of kio, under Dolphin). Either will
+# claim org.freedesktop.secrets, either will pop a password dialog, and neither
+# says which one it is. This prints the state of both plus the PAM wiring that
+# is supposed to make the question moot.
+#
+# Read-only. Nothing here unlocks, creates or modifies a keyring, and no call
+# below can itself raise a prompt.
+
+set -uo pipefail
+
+bold() { printf '\n\033[1m== %s\033[0m\n' "$1"; }
+ok()   { printf '   \033[32mok\033[0m   %s\n' "$1"; }
+bad()  { printf '   \033[31mBAD\033[0m  %s\n' "$1"; }
+info() { printf '        %s\n' "$1"; }
+
+pam_file=/etc/pam.d/greetd
+
+bold "1. Is anything prompting right now?"
+found_prompter=0
+found_any=0
+# gnome-keyring does not draw its own dialog; gcr-prompter does, as a separate
+# process. KWallet draws its own, so the daemon being up is not evidence -- a
+# visible window is.
+for p in gcr-prompter kwalletd6 ksecretd; do
+    if pgrep -a "$p" >/dev/null 2>&1; then
+        info "running: $(pgrep -a "$p" | head -1)"
+        found_any=1
+        [ "$p" = "gcr-prompter" ] && found_prompter=1
+    fi
+done
+[ "$found_any" = 0 ] && info "no prompter process running right now"
+[ "$found_prompter" = 1 ] &&
+    bad "gcr-prompter is up -- the dialog on screen is gnome-keyring's"
+
+if command -v hyprctl >/dev/null 2>&1; then
+    hyprctl clients -j 2>/dev/null |
+        grep -oE '"(class|title)": "[^"]*"' |
+        grep -iE 'keyring|wallet|prompt|unlock|password|1password' |
+        sed 's/^/        window: /'
+fi
+info "if the dialog says 1Password or shows your vault, it is 1Password's own"
+info "unlock, not a keyring at all -- that one is expected on every boot"
+
+bold "2. Which store owns org.freedesktop.secrets?"
+owner=$(busctl --user status org.freedesktop.secrets 2>/dev/null |
+    sed -n 's/^Exe=//p')
+case "$owner" in
+    */gnome-keyring-daemon) ok "gnome-keyring  ($owner)" ;;
+    */ksecretd|*/kwalletd6) bad "KWallet  ($owner)  -- it beat gnome-keyring to it" ;;
+    "")  bad "nobody has claimed it yet (it is activatable, so this can be normal)" ;;
+    *)   info "$owner" ;;
+esac
+
+bold "3. Which store actually holds secrets?"
+gk_dir=~/.local/share/keyrings
+kw_dir=~/.local/share/kwalletd
+gk_count=$(find "$gk_dir" -maxdepth 1 -name '*.keyring' 2>/dev/null | wc -l)
+kw_count=$(find "$kw_dir" -maxdepth 1 -name '*.kwl' -o -maxdepth 1 -name '*.salt' 2>/dev/null | wc -l)
+
+info "gnome-keyring: $gk_count keyring file(s) in $gk_dir"
+find "$gk_dir" -maxdepth 1 -name '*.keyring' -printf '        %f  (%s bytes, %TY-%Tm-%Td)\n' 2>/dev/null
+info "kwallet:       $kw_count file(s) in $kw_dir"
+find "$kw_dir" -maxdepth 1 \( -name '*.kwl' -o -name '*.salt' \) -printf '        %f  (%s bytes, %TY-%Tm-%Td)\n' 2>/dev/null
+
+[ "$gk_count" = 0 ] && [ "$kw_count" = 0 ] &&
+    info "neither store has anything -- a prompt now is asking you to CREATE one"
+
+bold "4. What does the live secret service say?"
+# Reading Locked/Label/Items never triggers an unlock prompt.
+collections=$(busctl --user get-property org.freedesktop.secrets \
+    /org/freedesktop/secrets org.freedesktop.Secret.Service Collections 2>/dev/null |
+    grep -oE '/org/freedesktop/secrets/collection/[A-Za-z0-9_]+')
+if [ -z "$collections" ]; then
+    info "no collections (service not running, or nothing created yet)"
+else
+    for c in $collections; do
+        label=$(busctl --user get-property org.freedesktop.secrets "$c" \
+            org.freedesktop.Secret.Collection Label 2>/dev/null | sed 's/^s "//; s/"$//')
+        locked=$(busctl --user get-property org.freedesktop.secrets "$c" \
+            org.freedesktop.Secret.Collection Locked 2>/dev/null | sed 's/^b //')
+        # grep -c counts matching *lines* and busctl prints one; count matches.
+        items=$(busctl --user get-property org.freedesktop.secrets "$c" \
+            org.freedesktop.Secret.Collection Items 2>/dev/null |
+            grep -o '/org/freedesktop/secrets/collection' | wc -l)
+        [ -z "$label" ] && label="(${c##*/})"
+        if [ "$locked" = "true" ]; then
+            bad "$label: LOCKED, $items item(s)   <- this is what is prompting"
+        else
+            ok "$label: unlocked, $items item(s)"
+        fi
+    done
+fi
+
+bold "5. PAM wiring in $pam_file"
+if [ ! -f "$pam_file" ]; then
+    bad "$pam_file does not exist"
+else
+    grep -n . "$pam_file" | sed 's/^/        /'
+    echo
+    auth_ok=0; sess_ok=0
+    grep -qE '^[[:space:]]*auth[[:space:]]+optional[[:space:]]+pam_gnome_keyring\.so' \
+        "$pam_file" && auth_ok=1
+    grep -qE '^[[:space:]]*session[[:space:]]+optional[[:space:]]+pam_gnome_keyring\.so[[:space:]]+auto_start' \
+        "$pam_file" && sess_ok=1
+    [ "$auth_ok" = 1 ] && ok "auth line present" || bad "auth line MISSING"
+    [ "$sess_ok" = 1 ] && ok "session auto_start line present" || bad "session line MISSING"
+
+    # The auth line only works if it runs after the module that collected the
+    # password, i.e. after the system-local-login include.
+    if [ "$auth_ok" = 1 ]; then
+        inc=$(grep -nE '^[[:space:]]*auth.*system-local-login' "$pam_file" |
+            head -1 | cut -d: -f1)
+        kr=$(grep -nE '^[[:space:]]*auth.*pam_gnome_keyring' "$pam_file" |
+            head -1 | cut -d: -f1)
+        if [ -n "$inc" ] && [ -n "$kr" ] && [ "$kr" -lt "$inc" ]; then
+            bad "auth line is ABOVE the system-local-login include; it will never"
+            info "see a password there. It has to come after."
+        fi
+    fi
+fi
+
+bold "6. Did the chezmoi script run?"
+if command -v chezmoi >/dev/null 2>&1; then
+    state=$(chezmoi state dump 2>/dev/null | grep -c '25-login-keyring' || true)
+    [ "$state" -gt 0 ] &&
+        info "run_onchange_after_25-login-keyring.sh has run at least once" ||
+        bad "no record of run_onchange_after_25-login-keyring.sh having run"
+    pending=$(chezmoi status 2>/dev/null | grep '25-login-keyring' || true)
+    [ -n "$pending" ] && info "pending on next apply: $pending"
+    info "note: run_onchange_ only re-runs when the script itself changes, so a"
+    info "run that exited early will not retry by itself. Run it directly:"
+    info "  bash \$(chezmoi source-path)/run_onchange_after_25-login-keyring.sh"
+else
+    info "chezmoi not on PATH"
+fi
+
+bold "Reference: what the working machine looks like"
+cat <<'REF'
+        Exe=/usr/bin/gnome-keyring-daemon
+        Login: unlocked
+        auth       include      system-local-login
+        auth       optional     pam_gnome_keyring.so
+        ...
+        session    optional     pam_gnome_keyring.so auto_start
+
+        If PAM looks right but Login is still LOCKED, the keyring's password is
+        not your login password and PAM cannot open it. Delete it and log in
+        again to have it recreated against your current password:
+            rm ~/.local/share/keyrings/login.keyring
+REF
