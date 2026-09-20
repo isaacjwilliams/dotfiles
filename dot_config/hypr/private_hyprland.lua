@@ -126,7 +126,16 @@ pcall(require, "monitors")
 -- with "module 'noctalia' not found" and the session comes up with no config at
 -- all. Guard it: unthemed-but-working beats broken, and the colors arrive on the
 -- next reload once Noctalia has written the file.
-local ok, noctalia = pcall(require, "noctalia")
+--
+-- The require below is wrapped in a function rather than passed to pcall as
+-- `pcall(require, "noctalia")`, and that is load-bearing. Noctalia's own apply
+-- hook greps this file for the literal string require("noctalia") and appends
+-- an unguarded call of its own whenever it does not find one -- which it did,
+-- on every palette render, undoing this guard. Wrapping keeps that exact string
+-- present in real code while pcall still catches the missing module.
+local ok, noctalia = pcall(function()
+    return require("noctalia")
+end)
 if ok and type(noctalia) == "table" and type(noctalia.apply_theme) == "function" then
     noctalia.apply_theme()
 end
