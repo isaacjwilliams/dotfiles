@@ -77,11 +77,30 @@ if [ ${#missing_aur[@]} -eq 0 ]; then
     exit 0
 fi
 
+# AUR installs prompt, on purpose -- note the absent -n.
+#
+# `-n` is not "yes to everything". shelly documents it as "safe automatic
+# answers", and the safe answer to "Build packages from this PKGBUILD? (y/N)"
+# is *no*. Passing it here made every AUR package fail with AurOperationFailed
+# / BuildFailed while a hand-run makepkg on the same PKGBUILD succeeded. A
+# fresh machine has a second gate as well: shelly's one-time AUR risk warning,
+# unacknowledged until someone says yes to it.
+#
+# `shelly install aur` has no --reviewed flag to pre-accept with, and that is
+# the right design -- a PKGBUILD is an arbitrary build script from a stranger,
+# run on the machine being set up. So this loop asks, once per package.
+if [ ! -t 0 ]; then
+    echo "!! no terminal to prompt on; shelly needs one to review each PKGBUILD" >&2
+    echo "   finish by hand with: shelly install aur ${missing_aur[*]}" >&2
+    exit 0
+fi
+
 # One package per call: these build from source and pull large upstream
 # binaries, so a single failure should not cost the whole set.
 echo "==> AUR: ${missing_aur[*]}"
+echo "    shelly shows each PKGBUILD and asks before building it"
 for pkg in "${missing_aur[@]}"; do
     echo "    building $pkg"
-    shelly install aur -n "$pkg" ||
+    shelly install aur "$pkg" ||
         echo "    !! $pkg failed; install it by hand later" >&2
 done

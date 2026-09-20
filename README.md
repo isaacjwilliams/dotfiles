@@ -22,8 +22,9 @@ chezmoi init --apply https://github.com/isaacjwilliams/dotfiles.git
 That apply will:
 
 1. Install the packages in `.chezmoidata/packages.toml` with `shelly`, repos
-   first and then the AUR. Expect a couple of source builds; it asks for your
-   sudo password once, at the start.
+   first and then the AUR. It asks for your sudo password once, at the start,
+   and then shows you each AUR PKGBUILD and waits for a yes before building
+   it. Expect a couple of source builds.
 2. Write the configuration files, and stub out the Noctalia theme files they
    include so nothing dangles before Noctalia's first run.
 3. Enable the system services, add you to the `docker` and `realtime` groups,
@@ -96,11 +97,18 @@ installed the AUR packages on this machine.
 `packages.toml`; it is a reasonable way to check what this file is missing,
 though it exports the full explicit set rather than the delta.
 
+One sharp edge worth knowing: `-n/--no-confirm` does **not** mean yes to
+everything. shelly defines it as *safe* automatic answers, so for "Build
+packages from this PKGBUILD? (y/N)" it answers no and the install fails with
+`AurOperationFailed`. The package script therefore passes `-n` only to the
+repo install, and lets the AUR half prompt. A machine that has never used the
+AUR through shelly also has a one-time risk warning to acknowledge first.
+
 ## Scripts
 
 | Script | Runs | Does |
 | --- | --- | --- |
-| `run_onchange_before_10-packages.sh.tmpl` | when `.chezmoidata/packages.toml` changes | Installs missing repo and AUR packages with `shelly`. Works out what is missing first and exits without touching the package database when the answer is nothing, so the sync-and-upgrade it would otherwise do is not a surprise on every apply. |
+| `run_onchange_before_10-packages.sh.tmpl` | when `.chezmoidata/packages.toml` changes | Installs missing repo and AUR packages with `shelly`. Works out what is missing first and exits without touching the package database when the answer is nothing, so the sync-and-upgrade it would otherwise do is not a surprise on every apply. Repo packages install unattended; AUR packages prompt. |
 | `run_after_15-noctalia-stubs.sh` | every apply | Creates empty placeholders for the Noctalia theme files tracked config includes, when Noctalia has not rendered them yet. Silent once they exist. |
 | `run_onchange_after_20-system.sh` | when its own unit/group list changes | Enables services, adds group memberships, sets fish as the login shell. |
 | `run_onchange_after_30-user-tools.sh` | when edited | `mise install`, plus the Ghostty cursor-shader checkout. |
