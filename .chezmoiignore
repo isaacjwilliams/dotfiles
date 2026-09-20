@@ -36,6 +36,12 @@ README.md
 # Machine state, not configuration.
 .config/fish/fish_variables
 
+# Claude Code owns this one. It rewrites the entry roughly daily and on every
+# version change, pointing Exec= at whichever versioned mise install is current,
+# so a tracked copy is overwritten faster than it can be applied. The
+# mimeapps.list association that routes claude-cli:// to it IS tracked.
+.local/share/applications/claude-code-url-handler.desktop
+
 # Upstream checkout, cloned by run_onchange_after_30-user-tools.sh because
 # .config/ghostty/config.ghostty points custom-shader at two files in it.
 .config/ghostty/shaders

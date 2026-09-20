@@ -185,7 +185,7 @@ group that are in the chezmoi source, not the whole live directory.
 | `.config/mise/config.toml` | mise | The whole non-distro toolchain plus the tasks that bootstrap it: `shell-integration`, `fish-plugins`, `node-corepack`, and the local Postgres cluster helpers. Its `postinstall` hook is what makes `mise install` enough. |
 | `.config/nvim/init.lua`, `lazy-lock.json`, `lua/config/*`, `lua/plugins/*`, `AGENTS.md` | Neovim / LazyVim | `lazy.nvim` clones itself on first launch; Mason installs language tooling. Ruby and Node come from mise. |
 | `.config/lazygit/config.yml`, `.config/gh/config.yml`, `.config/worktrunk/config.toml`, `.gitconfig` | Git tooling | delta as pager and diff filter. `gh`'s `hosts.yml` and worktrunk's approval/lock files are intentionally not managed. |
-| `.config/dolphinrc`, `.config/mimeapps.list`, `.config/chrome-flags.conf`, `.config/autostart/*.desktop`, `.local/share/applications/claude-code-url-handler.desktop` | Desktop integration | Default applications, Chrome's keyring flag, 1Password and Dropbox autostart. The Claude Code URL handler is templated onto the mise shim so a `mise up claude` cannot leave it dangling. |
+| `.config/dolphinrc`, `.config/mimeapps.list`, `.config/chrome-flags.conf`, `.config/autostart/*.desktop` | Desktop integration | Default applications, Chrome's keyring flag, 1Password and Dropbox autostart. `mimeapps.list` routes `claude-cli://` to Claude Code's own desktop entry, which is deliberately not tracked — see below. |
 | `.local/bin/{devlay,wsclose,hypr-monitors}` | Hyprland helpers | `devlay` opens a layout of windows on an empty workspace; `wsclose` closes a workspace without force-killing shared-process clients; `hypr-monitors` writes the per-machine monitor file. |
 | `.local/bin/keyring-doctor` | Diagnostic | Prints which secret store owns `org.freedesktop.secrets`, which one holds secrets, whether the login collection is locked, and the state of the PAM wiring. Read-only; nothing it runs can raise a prompt. |
 | `.claude/*`, `.codex/skills/*` | Claude Code, Codex | Settings, statusline, MCP proxy, and skills — including `sync-chezmoi-dotfiles`, which is the procedure for importing live changes back into this repo. |
@@ -208,6 +208,12 @@ because they live under `~/.config`.
   `fish_variables`. `fish_plugins` is the tracked manifest they come from.
 - **Upstream checkouts.** `.config/ghostty/shaders`, `lazy.nvim` and its
   plugins, Mason's tooling, mise's installed runtimes.
+- **Application-owned desktop entries.**
+  `.local/share/applications/claude-code-url-handler.desktop`. Claude Code
+  rewrites it roughly daily and on every version change, pointing `Exec=` at
+  whichever versioned mise install is current. Tracking it as a template on the
+  mise shim was tried and lost the race every time; the entry self-heals on its
+  own, and the `mimeapps.list` association that routes to it is tracked.
 - **Machine-local state.** `.config/hypr/monitors.lua`, caches, histories,
   browser profiles, `nvim`'s `lazyvim.json`, worktrunk approvals.
 
