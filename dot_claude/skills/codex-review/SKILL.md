@@ -3,7 +3,7 @@ name: codex-review
 description: Adversarial second-opinion review by Codex gpt-6-astra at high reasoning, read-only, followed by up to two Claude rebuttal rounds. Say what to review in plain language — this session's work (a plan or code changes), the working branch against an explicit, recorded, or default base, or a named set of files. Manual invocation only.
 disable-model-invocation: true
 argument-hint: "<what to review, in your own words>"
-allowed-tools: mcp__codex__codex, mcp__codex__codex-reply, Agent, AskUserQuestion, Read, Write, Grep, Glob, Bash
+allowed-tools: Agent, AskUserQuestion, Read, Write, Grep, Glob, Bash
 ---
 
 # Codex adversarial review
@@ -240,26 +240,24 @@ reviewer may not even report it.
 
 ## 4. Launch the reviewers
 
-Do what the policy file's **While Codex reviews** section says *before* the Codex call —
-the MCP call holds the foreground initially and is only handed back as a background task
-after roughly 120 seconds, so anything meant to run concurrently must start first or it
-forfeits that overlap.
+Do what the policy file's **While Codex reviews** section says, and start Codex with the
+`codex-ro` wrapper next to this file. Run it as a background Bash command, so you are
+told when it finishes:
 
 ```
-mcp__codex__codex
-  prompt:  see below
-  model:   "gpt-6-astra"
-  config:  { "model_reasoning_effort": "high" }
-  cwd:     the review root, resolved in step 2
+~/.claude/skills/codex-review/codex-ro start \
+  <review root> <scratchpad>/codex-review-prompt.md <scratchpad>/codex-review-round-0
 ```
 
-`sandbox` and `approval-policy` are forced to read-only by the MCP proxy and cannot be
-overridden from here. The proxy's timeout is staleness-only — 3 minutes of silence,
-extended to 15 while a reasoning block or shell command is open — with no wall-clock
-ceiling. Claude Code separately imposes a hard 60-minute per-server cap that no amount of
-activity extends; that is a platform limit, not part of this design. If the tool returns
-a cancellation error, **report the stall to the user**; never invent what the review
-would have said.
+The review root is the one resolved in step 2. Write the prompt below to the prompt file
+first. The wrapper runs Codex as `gpt-6-astra` at high reasoning, read-only, with
+approvals off. **Never run `codex` any other way.** The wrapper is what keeps the review
+read-only, including on rebuttal rounds.
+
+Codex's answer is in `<scratchpad>/codex-review-round-0.md`. Exit status 124 means Codex
+wrote nothing for 15 minutes and was stopped; any other non-zero status is a failure.
+Either way, **report the stall to the user**; never invent what the review would have
+said.
 
 Prompt (for a plan review, point the first line at the plan file as well):
 
@@ -271,7 +269,7 @@ Prompt (for a plan review, point the first line at the plan file as well):
 > You are reviewing work produced by another AI agent. Be direct and specific. Do not
 > soften findings, and do not manufacture findings to appear thorough.
 
-Save the returned `threadId`.
+Save the thread id from the wrapper's last line of output (`thread: <id>`).
 
 ## 5. Reconcile — this is not a formality
 
@@ -322,8 +320,15 @@ report; nothing is withheld pending Codex's answer.
 disputed findings, and no Claude-only findings, skip this step — do not spend a turn
 manufacturing one, and do not spend a second round because the request said 2.
 
-Each round is one `mcp__codex__codex-reply` call with the saved `threadId`; it inherits
-the thread's read-only sandbox. A round is four steps, not one:
+Each round is one `codex-ro reply` call, run in the background like the first, with the
+review root, the saved thread id, a new prompt file, and the next out-prefix:
+
+```
+~/.claude/skills/codex-review/codex-ro reply \
+  <review root> <thread id> <scratchpad>/codex-review-reply-1.md <scratchpad>/codex-review-round-1
+```
+
+A round is four steps, not one:
 
 - **Send** the open items, each with its evidence — see below.
 - **Reconcile the response, by step 5.** Verify against the artifact, assign a verdict,

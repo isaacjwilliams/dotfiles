@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# Run one codex-review turn with Codex, always read-only.
+#
+#   codex-ro start <review-root> <prompt-file> <out-prefix>
+#   codex-ro reply <review-root> <thread-id> <prompt-file> <out-prefix>
+#
+# Writes <out-prefix>.md (Codex's final message) and <out-prefix>.events.jsonl
+# (its event stream). The last line on stdout is "thread: <id>"; pass that id
+# to `reply` for the next round.
+#
+# The sandbox and approval policy are set on every call, including `reply`.
+# A resumed thread would otherwise keep whatever sandbox it was created with.
+#
+# If Codex writes no events for CODEX_RO_IDLE_SECS (default 900), the run is
+# treated as stalled: it is killed and the script exits 124.
+
+set -euo pipefail
+
+MODEL=gpt-6-astra
+EFFORT=high
+IDLE_SECS=${CODEX_RO_IDLE_SECS:-900}
+
+fail() {
+  echo "codex-ro: $*" >&2
+  exit 2
+}
+
+mode=${1:-}
+thread=
+case $mode in
+  start)
+    [[ $# -eq 4 ]] || fail "usage: codex-ro start <review-root> <prompt-file> <out-prefix>"
+    root=$2 prompt=$3 out=$4
+    ;;
+  reply)
+    [[ $# -eq 5 ]] || fail "usage: codex-ro reply <review-root> <thread-id> <prompt-file> <out-prefix>"
+    root=$2 thread=$3 prompt=$4 out=$5
+    [[ $thread =~ ^[0-9a-fA-F-]{36}$ ]] || fail "not a thread id: $thread"
+    ;;
+  *) fail "usage: codex-ro start|reply ..." ;;
+esac
+
+[[ -d $root ]] || fail "no such directory: $root"
+[[ -f $prompt ]] || fail "no such prompt file: $prompt"
+
+# Resolve before the cd below, so relative paths keep meaning what the caller meant.
+root=$(realpath -- "$root")
+prompt=$(realpath -- "$prompt")
+out=$(realpath -m -- "$out")
+events=$out.events.jsonl
+mkdir -p -- "$(dirname -- "$out")"
+
+lock=(-c 'sandbox_mode="read-only"' -c 'approval_policy="never"')
+tuning=(-m "$MODEL" -c "model_reasoning_effort=\"$EFFORT\"" --skip-git-repo-check --json -o "$out.md")
+if [[ $mode == start ]]; then
+  cmd=(codex exec "${lock[@]}" "${tuning[@]}" -C "$root" -)
+else
+  cmd=(codex exec "${lock[@]}" resume "${tuning[@]}" "$thread" -)
+fi
+
+cd "$root"
+"${cmd[@]}" <"$prompt" >"$events" &
+pid=$!
+
+stalled=false
+while kill -0 "$pid" 2>/dev/null; do
+  sleep 5
+  quiet=$(($(date +%s) - $(stat -c %Y "$events")))
+  if ((quiet >= IDLE_SECS)); then
+    stalled=true
+    kill "$pid" 2>/dev/null || true
+    break
+  fi
+done
+
+status=0
+wait "$pid" || status=$?
+
+started=$(jq -r 'select(.type == "thread.started") | .thread_id' "$events" 2>/dev/null | head -1)
+thread=${started:-$thread}
+
+if $stalled; then
+  echo "codex-ro: Codex wrote nothing for ${IDLE_SECS}s and was stopped" >&2
+  status=124
+elif ((status != 0)); then
+  echo "codex-ro: codex exited with status $status; see $events" >&2
+fi
+
+echo "final message: $out.md"
+echo "thread: ${thread:-unknown}"
+exit "$status"

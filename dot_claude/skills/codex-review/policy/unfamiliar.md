@@ -8,10 +8,7 @@ it is genuine signal rather than an echo of the reasoning that produced the arti
 
 ## While Codex reviews
 
-Launch an independent Claude review that runs concurrently, then make the Codex call.
-Launch first: the MCP call holds the foreground initially and is handed back to you as a
-background task only after roughly 120 seconds, so anything started afterwards loses
-that much overlap for no reason.
+Launch an independent Claude review that runs at the same time as Codex.
 
 ```
 Agent  subagent_type: general-purpose

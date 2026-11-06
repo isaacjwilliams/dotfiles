@@ -12,9 +12,9 @@ independent signal — it would reproduce the same reasoning that produced the a
 including whatever is wrong with it. Do not launch a reviewer subagent, and do not spend
 the wait re-reading your own diff looking for things to pre-emptively defend.
 
-The call is handed back to you as a background task after roughly 120 seconds. That is
-not an invitation to start reviewing; the reason to hold off is independence, not
-blocking. Unrelated work the user asks for in the meantime is fine.
+Codex runs in the background. That is not an invitation to start reviewing; the reason
+to hold off is independence, not blocking. Unrelated work the user asks for in the
+meantime is fine.
 
 ## The bias to correct for
 
