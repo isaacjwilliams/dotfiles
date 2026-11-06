@@ -5,13 +5,28 @@
     "command": "bash ~/.claude/statusline-command.sh"
   },
   "enabledPlugins": {
-    "ruby-lsp@claude-plugins-official": true,
-    "stripe@claude-plugins-official": true
+    "ruby-lsp@claude-plugins-official": false,
+    "stripe@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true
   },
   "effortLevel": "high",
+  "modelSettings": {
+    "claude-opus-5-5": {
+      "effortLevel": "high"
+    }
+  },
   "theme": "auto",
   "editorMode": "vim",
-  "preferredNotifChannel": "auto",
   "inputNeededNotifEnabled": true,
-  "agentPushNotifEnabled": true
+  "agentPushNotifEnabled": true,
+  "pluginConfigs": {
+    "agents-md@builtin": {
+      "options": {
+        "instructionFiles": "claude-md-and-agents-md"
+      }
+    }
+  },
+  "env": {
+    "CREW_HOME": "/home/isaac/crew"
+  }
 }

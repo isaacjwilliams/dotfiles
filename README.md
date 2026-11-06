@@ -44,6 +44,8 @@ After the reboot, sign in to the things that intentionally carry no credentials
 here: `gh auth login`, 1Password, Dropbox, Chrome, Spotify, Tailscale
 (`sudo tailscale up`), and `heroku login` / `stripe login` if you need them.
 
+Set up the agent crew separately using [crew-home](https://github.com/isaacjwilliams/crew-home).
+
 Switch the remote to SSH once `gh auth login` has set up a key:
 
 ```bash
@@ -188,7 +190,7 @@ group that are in the chezmoi source, not the whole live directory.
 | `.config/dolphinrc`, `.config/mimeapps.list`, `.config/chrome-flags.conf`, `.config/autostart/*.desktop` | Desktop integration | Default applications, Chrome's keyring flag, 1Password and Dropbox autostart. `mimeapps.list` routes `claude-cli://` to Claude Code's own desktop entry, which is deliberately not tracked — see below. |
 | `.local/bin/{devlay,wsclose,hypr-monitors}` | Hyprland helpers | `devlay` opens a layout of windows on an empty workspace; `wsclose` closes a workspace without force-killing shared-process clients; `hypr-monitors` writes the per-machine monitor file. |
 | `.local/bin/keyring-doctor` | Diagnostic | Prints which secret store owns `org.freedesktop.secrets`, which one holds secrets, whether the login collection is locked, and the state of the PAM wiring. Read-only; nothing it runs can raise a prompt. |
-| `.claude/*`, `.codex/skills/*` | Claude Code, Codex | Settings, statusline, MCP proxy, and skills — including `sync-chezmoi-dotfiles`, which is the procedure for importing live changes back into this repo. |
+| `.claude/*`, `.codex/skills/*` | Claude Code, Codex | Personal instructions, settings, statusline, and skills — including `sync-chezmoi-dotfiles`, which is the procedure for importing live changes back into this repo. |
 
 ## Deliberately not managed
 
