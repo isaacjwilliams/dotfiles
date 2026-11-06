@@ -190,7 +190,7 @@ group that are in the chezmoi source, not the whole live directory.
 | `.config/dolphinrc`, `.config/mimeapps.list`, `.config/chrome-flags.conf`, `.config/autostart/*.desktop` | Desktop integration | Default applications, Chrome's keyring flag, 1Password and Dropbox autostart. `mimeapps.list` routes `claude-cli://` to Claude Code's own desktop entry, which is deliberately not tracked — see below. |
 | `.local/bin/{devlay,wsclose,hypr-monitors}` | Hyprland helpers | `devlay` opens a layout of windows on an empty workspace; `wsclose` closes a workspace without force-killing shared-process clients; `hypr-monitors` writes the per-machine monitor file. |
 | `.local/bin/keyring-doctor` | Diagnostic | Prints which secret store owns `org.freedesktop.secrets`, which one holds secrets, whether the login collection is locked, and the state of the PAM wiring. Read-only; nothing it runs can raise a prompt. |
-| `.claude/*`, `.codex/skills/*` | Claude Code, Codex | Personal instructions, settings, statusline, and skills — including `sync-chezmoi-dotfiles`, which is the procedure for importing live changes back into this repo. |
+| `.claude/*`, `.codex/AGENTS.md`, `.codex/config.toml`, `.codex/skills/*` | Claude Code, Codex | Personal instructions, settings, statusline, and skills — including `sync-chezmoi-dotfiles`, which is the procedure for importing live changes back into this repo. The Codex template merges saved preferences and MCP definitions into existing configuration, preserving local trust decisions and runtime state without storing them in this repository. |
 
 ## Deliberately not managed
 

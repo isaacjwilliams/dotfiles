@@ -1,0 +1,24 @@
+{{- /* chezmoi:modify-template */ -}}
+{{- /* Keep local trust decisions and runtime state out of the repository. */ -}}
+{{- $config := dict -}}
+{{- if .chezmoi.stdin -}}
+{{- $config = .chezmoi.stdin | fromToml -}}
+{{- end -}}
+{{- $preferences := fromToml `
+model = "gpt-6-astra"
+model_reasoning_effort = "high"
+approvals_reviewer = "auto_review"
+plan_mode_reasoning_effort = "xhigh"
+
+[tui]
+status_line = ["model-with-reasoning", "current-dir", "approval-mode", "context-used", "used-tokens", "fast-mode", "thread-title"]
+status_line_use_colors = true
+
+[mcp_servers.chrome-devtools]
+command = "npx"
+args = ["-y", "chrome-devtools-mcp@latest", "--headless", "--isolated"]
+
+[mcp_servers.sentry]
+url = "https://mcp.sentry.dev/mcp"
+` -}}
+{{ mergeOverwrite $config $preferences | toToml }}
