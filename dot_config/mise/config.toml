@@ -16,6 +16,7 @@ gh = "latest"
 worktrunk = "latest"
 postgres = "16.14"
 delta = "latest"
+shellcheck = "latest"
 # npm backend: the standalone installer needs sudo and writes to /usr/local.
 # mise pins the Node it runs against, so the docs' "system Node" caveat is moot.
 heroku = "latest"
